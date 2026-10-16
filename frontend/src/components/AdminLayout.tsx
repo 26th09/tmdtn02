@@ -27,7 +27,7 @@ const NAV_GROUPS: { title: string; items: { to: string; label: string; icon: str
   {
     title: 'Vận hành',
     items: [
-      { to: '/admin/reviews', label: 'Kiểm duyệt đánh giá', icon: '★' },
+      { to: '/admin/reviews', label: 'Báo cáo và quản lý phản hồi của khách hàng', icon: '★' },
       { to: '/admin/reports', label: 'Báo cáo & thống kê', icon: '📊' },
       { to: '/admin/users', label: 'Người dùng', icon: '☺' },
       { to: '/admin/settings', label: 'Cấu hình hệ thống', icon: '⚙' },
@@ -43,7 +43,7 @@ const TITLES: { prefix: string; label: string }[] = [
   { prefix: '/admin/orders', label: 'Quản lý đơn hàng' },
   { prefix: '/admin/discounts', label: 'Mã khuyến mại' },
   { prefix: '/admin/promotions', label: 'Chương trình khuyến mại' },
-  { prefix: '/admin/reviews', label: 'Kiểm duyệt đánh giá' },
+  { prefix: '/admin/reviews', label: 'Báo cáo và quản lý phản hồi của khách hàng' },
   { prefix: '/admin/reports', label: 'Báo cáo & thống kê' },
   { prefix: '/admin/users', label: 'Quản lý người dùng' },
   { prefix: '/admin/settings', label: 'Cấu hình hệ thống' },
