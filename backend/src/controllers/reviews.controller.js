@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma.js'
 import { maybeCompleteBooking } from '../lib/booking.js'
 import { hashReviewToken } from '../lib/review-token.js'
+import { recomputeRatingFor } from '../lib/review.js'
 import { publicUploadUrl } from '../lib/uploads.js'
 
 function validateRatingComment(rating, comment) {
@@ -93,7 +94,8 @@ export async function createGuestReview(req, res, next) {
       return res.status(409).json({ message: 'Đơn này đã được đánh giá trước đó' }) // 4a
     }
 
-    // BR-63: mọi đánh giá ở trạng thái "chờ kiểm duyệt" (approved: false mặc định).
+    // Chính sách mới: không cần phê duyệt — đánh giá (kể cả của guest qua token 1 lần)
+    // được đẩy trực tiếp lên hệ thống (approved: true). Quản trị vẫn có thể ẩn nếu vi phạm.
     const imgs = pickImageUrls(images)
     await prisma.$transaction([
       prisma.review.create({
@@ -105,13 +107,16 @@ export async function createGuestReview(req, res, next) {
           authorName: booking.guestName,
           rating: Number(rating),
           comment: comment || null,
+          approved: true,
           images: imgs.length ? { create: imgs } : undefined,
         },
       }),
       prisma.reviewToken.update({ where: { id: row.id }, data: { usedAt: new Date() } }), // BR-62: vô hiệu sau khi dùng
     ])
+    // Cập nhật điểm trung bình / số lượt ngay vì đánh giá đã hiển thị công khai.
+    await recomputeRatingFor({ tourId: booking.tourId, propertyId: booking.tourId ? null : booking.propertyId })
 
-    res.status(201).json({ message: 'Cảm ơn bạn đã gửi đánh giá! Đánh giá đang chờ kiểm duyệt.' })
+    res.status(201).json({ message: 'Cảm ơn bạn đã gửi đánh giá! Đánh giá đã được đăng.' })
   } catch (err) {
     next(err)
   }
@@ -149,11 +154,13 @@ export async function createMyReview(req, res, next) {
         authorName: user?.name || completed.guestName,
         rating: Number(rating),
         comment: comment || null,
+        approved: true, // không cần phê duyệt — đăng trực tiếp
         images: imgs.length ? { create: imgs } : undefined,
       },
     })
+    await recomputeRatingFor({ tourId: completed.tourId, propertyId: completed.tourId ? null : completed.propertyId })
 
-    res.status(201).json({ message: 'Cảm ơn bạn đã gửi đánh giá! Đánh giá đang chờ kiểm duyệt.' })
+    res.status(201).json({ message: 'Cảm ơn bạn đã gửi đánh giá! Đánh giá đã được đăng.' })
   } catch (err) {
     next(err)
   }

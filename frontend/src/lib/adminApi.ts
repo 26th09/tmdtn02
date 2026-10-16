@@ -355,6 +355,11 @@ export const adminApi = {
   },
   approveReview: (id: number) => patchReq<{ item: AdminReview }>(`/api/admin/reviews/${id}/approve`, {}),
   rejectReview: (id: number) => patchReq<{ item: AdminReview }>(`/api/admin/reviews/${id}/reject`, {}),
+  replyReview: (id: number, message: string) =>
+    post<{ item: { id: number; replyText: string | null; repliedAt: string | null }; sentTo: string }>(
+      `/api/admin/reviews/${id}/reply`,
+      { message },
+    ),
 
   // UC-22 – Báo cáo & thống kê
   getReports: (params: { from?: string; to?: string } = {}) => {
@@ -468,8 +473,12 @@ export interface AdminReview {
   comment: string | null
   approved: boolean
   rejected: boolean
+  replyText: string | null
+  repliedAt: string | null
   createdAt: string
   product?: { name: string; slug: string }
+  reviewer?: { name: string; email: string | null; isGuest: boolean | null }
+  booking?: { code: string; type: string; guestName: string; guestEmail: string } | null
 }
 
 export interface AdminDiscount {

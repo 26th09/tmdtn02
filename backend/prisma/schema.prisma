@@ -475,6 +475,8 @@ model Review {
   comment     String?     @db.Text
   approved    Boolean     @default(false)
   rejected    Boolean     @default(false) // UC-21/BR-104: từ chối/ẩn — phân biệt với "chờ kiểm duyệt" (cả 2 đều approved=false)
+  replyText   String?     @db.Text // Phản hồi của người bán/quản trị gửi tới khách (kèm gửi email)
+  repliedAt   DateTime? // thời điểm gửi phản hồi gần nhất
   createdAt   DateTime    @default(now())
 
   images      ReviewImage[] // UC-15: ảnh đính kèm theo đánh giá

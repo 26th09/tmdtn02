@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { approveReview, listReviews, rejectReview } from '../../controllers/admin/reviews.controller.js'
+import { approveReview, listReviews, rejectReview, replyReview } from '../../controllers/admin/reviews.controller.js'
 import { requireAdmin } from '../../middleware/adminAuth.middleware.js'
 
 const router = Router()
@@ -10,5 +10,6 @@ router.use(requireAdmin)
 router.get('/', listReviews)
 router.patch('/:id/approve', approveReview)
 router.patch('/:id/reject', rejectReview)
+router.post('/:id/reply', replyReview)
 
 export default router
