@@ -88,7 +88,7 @@ export function AdminReviewsPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-white">Quản lý đánh giá</h1>
+      <h1 className="mb-6 text-2xl font-bold text-white">Báo cáo và quản lý phản hồi của khách hàng</h1>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <select value={status} onChange={(e) => setStatus(e.target.value)} className={field}>
