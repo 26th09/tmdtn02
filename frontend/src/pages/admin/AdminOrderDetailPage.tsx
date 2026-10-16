@@ -176,7 +176,7 @@ export function AdminOrderDetailPage() {
       {payments.length > 0 && (
         <div className="mb-6 rounded-xl border border-slate-800 bg-slate-950 p-5">
           <h2 className="mb-3 font-semibold text-slate-200">Lịch sử thanh toán</h2>
-          <table className="w-full text-sm">
+          <table className="block w-full overflow-x-auto text-sm">
             <thead className="text-left text-slate-500">
               <tr>
                 <th className="py-1 pr-4">Thời gian</th>

@@ -131,7 +131,7 @@ export function AdminGuideFormPage() {
 
         <fieldset className="space-y-4 border-t border-slate-800 pt-4">
           <legend className="mb-2 font-semibold text-slate-200">Địa điểm (bản đồ)</legend>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="col-span-3"><label className={label}>Tên địa điểm</label><input className={field} value={f.locationName} onChange={(e) => set('locationName', e.target.value)} placeholder="VD: Đà Lạt, Lâm Đồng" /></div>
             <div><label className={label}>Vĩ độ (latitude)</label><input className={field} value={f.latitude} onChange={(e) => set('latitude', e.target.value)} placeholder="11.9404" /></div>
             <div><label className={label}>Kinh độ (longitude)</label><input className={field} value={f.longitude} onChange={(e) => set('longitude', e.target.value)} placeholder="108.4583" /></div>

@@ -195,7 +195,7 @@ export function AdminDiscountsPage() {
       ) : items.length === 0 ? (
         <p className="text-slate-500">Chưa có mã khuyến mại nào.</p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-800">
+        <div className="overflow-x-auto rounded-xl border border-slate-800">
           <table className="w-full text-sm">
             <thead className="bg-slate-950 text-left text-slate-400">
               <tr>

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../lib/adminAuth'
 
@@ -52,9 +53,45 @@ export function AdminLayout() {
   const { admin, logout } = useAdminAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  // Menu mobile cho khu vực quản trị.
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  useEffect(() => {
+    setMenuOpen(false)
+  }, [pathname])
 
   const pageTitle = TITLES.find((t) => pathname.startsWith(t.prefix))?.label ?? 'Bảng điều khiển'
   const initials = (admin?.name || admin?.username || 'A').charAt(0).toUpperCase()
+
+  // Danh sách điều hướng dùng chung cho sidebar (desktop) và drawer (mobile).
+  const navList = (
+    <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
+      {NAV_GROUPS.map((group) => (
+        <div key={group.title}>
+          <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{group.title}</p>
+          <div className="space-y-1">
+            {group.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    isActive
+                      ? 'bg-emerald-500/15 text-emerald-300 shadow-[inset_2px_0_0_0] shadow-emerald-400'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`
+                }
+              >
+                <span className="w-5 text-center text-base">{item.icon}</span>
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
+        </div>
+      ))}
+    </nav>
+  )
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -66,32 +103,7 @@ export function AdminLayout() {
             <span className="text-lg font-semibold text-white">StayTour <span className="text-emerald-400">Admin</span></span>
           </Link>
 
-          <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
-            {NAV_GROUPS.map((group) => (
-              <div key={group.title}>
-                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{group.title}</p>
-                <div className="space-y-1">
-                  {group.items.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      end={item.end}
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                          isActive
-                            ? 'bg-emerald-500/15 text-emerald-300 shadow-[inset_2px_0_0_0] shadow-emerald-400'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                        }`
-                      }
-                    >
-                      <span className="w-5 text-center text-base">{item.icon}</span>
-                      {item.label}
-                    </NavLink>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </nav>
+          {navList}
 
           <div className="border-t border-slate-800 p-3">
             <Link to="/" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white">
@@ -100,12 +112,64 @@ export function AdminLayout() {
           </div>
         </aside>
 
+        {/* ── Drawer điều hướng cho mobile ── */}
+        {menuOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <button
+              type="button"
+              aria-label="Đóng menu"
+              onClick={() => setMenuOpen(false)}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            />
+            <aside className="absolute inset-y-0 left-0 flex w-64 max-w-[85vw] flex-col border-r border-slate-800 bg-slate-900">
+              <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+                <Link to="/admin" className="flex items-center gap-2.5">
+                  <span className="grid h-9 w-9 place-items-center rounded-lg bg-emerald-500 text-base font-bold text-slate-900">S</span>
+                  <span className="text-lg font-semibold text-white">StayTour <span className="text-emerald-400">Admin</span></span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen(false)}
+                  aria-label="Đóng menu"
+                  className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                  </svg>
+                </button>
+              </div>
+              {navList}
+              <div className="border-t border-slate-800 p-3">
+                <Link to="/" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white">
+                  <span className="w-5 text-center">↩</span> Về trang khách hàng
+                </Link>
+              </div>
+            </aside>
+          </div>
+        )}
+
         {/* ── Nội dung ── */}
         <div className="min-h-screen flex-1 lg:ml-64">
-          <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-800 bg-slate-900/80 px-6 py-3.5 backdrop-blur">
-            <div>
-              <h1 className="text-lg font-semibold text-white">{pageTitle}</h1>
-              <p className="text-xs text-slate-500">Khu vực quản trị</p>
+          <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/80 px-4 py-3.5 backdrop-blur sm:px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setMenuOpen(true)}
+                aria-label="Mở menu"
+                aria-expanded={menuOpen}
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-slate-300 hover:bg-slate-800 lg:hidden"
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              </button>
+              <div className="min-w-0">
+                <h1 className="truncate text-lg font-semibold text-white">{pageTitle}</h1>
+                <p className="text-xs text-slate-500">Khu vực quản trị</p>
+              </div>
             </div>
             <div className="flex items-center gap-4">
               <div className="hidden items-center gap-2.5 sm:flex">

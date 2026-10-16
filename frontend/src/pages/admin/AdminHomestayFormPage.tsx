@@ -150,7 +150,7 @@ export function AdminHomestayFormPage() {
 
         <fieldset className="space-y-4 border-t border-slate-800 pt-4">
           <legend className="mb-2 font-semibold text-slate-200">Giá & chính sách</legend>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div><label className={label}>Giá tham khảo (VNĐ) *</label><input className={field} type="number" min={0} value={f.basePrice} onChange={(e) => set('basePrice', e.target.value)} required /></div>
             <div><label className={label}>Tỷ lệ cọc (%)</label><input className={field} type="number" min={1} max={100} value={f.depositRate} onChange={(e) => set('depositRate', e.target.value)} placeholder="Theo cấu hình hệ thống" /></div>
             <div><label className={label}>Chính sách hủy</label>
@@ -246,7 +246,7 @@ function RoomTypesEditor({ propertyId, roomTypes, onChange }: { propertyId: numb
       <h2 className="mb-3 font-semibold text-slate-200">Loại phòng</h2>
       {error && <div className="mb-3 rounded-lg border border-red-800 bg-red-950/40 px-3 py-2 text-sm text-red-300">⚠️ {error}</div>}
       {roomTypes.length > 0 && (
-        <table className="mb-4 w-full text-sm">
+        <table className="mb-4 block w-full overflow-x-auto text-sm">
           <thead className="text-left text-slate-500"><tr><th className="py-1 pr-3">Tên</th><th className="py-1 pr-3">Giường</th><th className="py-1 pr-3">Sức chứa</th><th className="py-1 pr-3">Số phòng</th><th className="py-1 pr-3">Giá/đêm</th><th></th></tr></thead>
           <tbody>
             {roomTypes.map((rt) => (

@@ -93,7 +93,7 @@ function CustomersTab() {
       ) : items.length === 0 ? (
         <p className="text-slate-500">Không có tài khoản nào khớp bộ lọc.</p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-800">
+        <div className="overflow-x-auto rounded-xl border border-slate-800">
           <table className="w-full text-sm">
             <thead className="bg-slate-950 text-left text-slate-400">
               <tr>
@@ -239,7 +239,7 @@ function AdminsTab() {
       {loading ? (
         <p className="text-slate-500">Đang tải...</p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-800">
+        <div className="overflow-x-auto rounded-xl border border-slate-800">
           <table className="w-full text-sm">
             <thead className="bg-slate-950 text-left text-slate-400">
               <tr>
