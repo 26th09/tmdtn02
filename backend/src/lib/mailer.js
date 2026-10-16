@@ -131,6 +131,30 @@ export async function sendReviewThankYouEmail(to, info) {
   return true
 }
 
+// Phản hồi của người bán/quản trị cho một đánh giá — gửi trực tiếp tới email khách hàng.
+export async function sendReviewReplyEmail(to, info) {
+  const from = process.env.MAIL_FROM || 'StayTour <no-reply@staytour.example>'
+  const stars = '★'.repeat(info.rating) + '☆'.repeat(5 - info.rating)
+  const quoted = info.comment
+    ? `<blockquote style="margin:12px 0;padding:8px 14px;border-left:3px solid #d6d3c4;color:#555">${info.comment}</blockquote>`
+    : ''
+  const html = `
+    <p>Chào ${info.authorName || 'bạn'},</p>
+    <p>Cảm ơn bạn đã đánh giá <strong>${info.productName}</strong>${info.code ? ` (đơn <strong>${info.code}</strong>)` : ''}.</p>
+    <p>Đánh giá của bạn: <span style="color:#e0a800">${stars}</span></p>
+    ${quoted}
+    <p><strong>Phản hồi từ StayTour:</strong></p>
+    <p style="white-space:pre-line">${info.reply}</p>
+    <p>Trân trọng,<br/>Đội ngũ StayTour</p>
+  `
+  if (!transporter) {
+    console.log(`[MAILER dev] Phản hồi đánh giá tới ${to} (đơn ${info.code || '-'}): ${info.reply}`)
+    return true
+  }
+  await transporter.sendMail({ from, to, subject: `Phản hồi đánh giá của bạn — StayTour`, html })
+  return true
+}
+
 // UC-18 – Thông báo khi quản trị viên chuyển trạng thái đơn (BR-90).
 const ORDER_STATUS_LABEL = {
   DEPOSITED: 'đã cọc',

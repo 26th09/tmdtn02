@@ -123,7 +123,7 @@ export function AdminReportsPage() {
             {data.topTours.length === 0 ? (
               <p className="text-sm text-slate-500">Không có đơn tour trong kỳ.</p>
             ) : (
-              <table className="w-full text-sm">
+              <table className="block w-full overflow-x-auto text-sm">
                 <thead className="text-left text-slate-500">
                   <tr>
                     <th className="py-1 pr-4">Tour</th>

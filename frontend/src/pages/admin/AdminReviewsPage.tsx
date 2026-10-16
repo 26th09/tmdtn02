@@ -1,21 +1,29 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { AdminApiError, adminApi, type AdminReview } from '../../lib/adminApi'
 
 const field = 'rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none'
 
-const STATUS_LABEL: Record<string, string> = { PENDING: 'Chờ kiểm duyệt', APPROVED: 'Đã duyệt', REJECTED: 'Từ chối/ẩn' }
+const STATUS_LABEL: Record<string, string> = { PENDING: 'Chờ kiểm duyệt', APPROVED: 'Đã đăng', REJECTED: 'Đã ẩn' }
 
 function Stars({ n }: { n: number }) {
   return <span className="text-amber-400">{'★'.repeat(n)}{'☆'.repeat(5 - n)}</span>
 }
 
-// UC-21 – Kiểm duyệt đánh giá: duyệt / từ chối / ẩn (BR-103→107).
+// UC-21 – Quản lý đánh giá: xem người đánh giá + đơn hàng liên kết, phản hồi khách qua email,
+// ẩn đánh giá vi phạm. Đánh giá mới được đăng trực tiếp (không cần phê duyệt).
 export function AdminReviewsPage() {
   const [items, setItems] = useState<AdminReview[]>([])
-  const [status, setStatus] = useState('PENDING')
+  const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
+
+  // Soạn phản hồi theo từng đánh giá.
+  const [replyOpen, setReplyOpen] = useState<number | null>(null)
+  const [replyText, setReplyText] = useState('')
+  const [replyBusy, setReplyBusy] = useState(false)
+  const [replyMsg, setReplyMsg] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -37,7 +45,7 @@ export function AdminReviewsPage() {
       await adminApi.approveReview(r.id)
       load()
     } catch (err) {
-      setError(err instanceof AdminApiError ? err.message : 'Duyệt thất bại')
+      setError(err instanceof AdminApiError ? err.message : 'Thao tác thất bại')
     } finally {
       setBusyId(null)
     }
@@ -56,20 +64,44 @@ export function AdminReviewsPage() {
     }
   }
 
+  function openReply(r: AdminReview) {
+    setReplyOpen(r.id)
+    setReplyText(r.replyText ?? '')
+    setReplyMsg(null)
+  }
+
+  async function sendReply(r: AdminReview) {
+    if (!replyText.trim()) return
+    setReplyBusy(true)
+    setReplyMsg(null)
+    try {
+      const res = await adminApi.replyReview(r.id, replyText.trim())
+      setReplyMsg(`✓ Đã gửi phản hồi tới ${res.sentTo}`)
+      setReplyOpen(null)
+      load()
+    } catch (err) {
+      setReplyMsg(err instanceof AdminApiError ? err.message : 'Gửi phản hồi thất bại')
+    } finally {
+      setReplyBusy(false)
+    }
+  }
+
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-white">Kiểm duyệt đánh giá</h1>
+      <h1 className="mb-6 text-2xl font-bold text-white">Quản lý đánh giá</h1>
 
-      <div className="mb-4 flex gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <select value={status} onChange={(e) => setStatus(e.target.value)} className={field}>
-          <option value="PENDING">Chờ kiểm duyệt</option>
-          <option value="APPROVED">Đã duyệt</option>
-          <option value="REJECTED">Từ chối/ẩn</option>
           <option value="">Tất cả</option>
+          <option value="APPROVED">Đã đăng</option>
+          <option value="REJECTED">Đã ẩn</option>
+          <option value="PENDING">Chờ kiểm duyệt (cũ)</option>
         </select>
+        <p className="text-xs text-slate-500">Đánh giá mới (kể cả của khách vãng lai qua liên kết 1 lần) được đăng trực tiếp.</p>
       </div>
 
       {error && <div className="mb-4 rounded-lg border border-red-800 bg-red-950/40 px-4 py-2 text-sm text-red-300">⚠️ {error}</div>}
+      {replyMsg && <div className="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/40 px-4 py-2 text-sm text-emerald-300">{replyMsg}</div>}
 
       {loading ? (
         <p className="text-slate-500">Đang tải...</p>
@@ -79,33 +111,94 @@ export function AdminReviewsPage() {
         <div className="space-y-3">
           {items.map((r) => (
             <div key={r.id} className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <span className="font-semibold text-slate-200">{r.authorName}</span>{' '}
-                  <span className="text-xs text-slate-500">
-                    · {r.product?.name} · {new Date(r.createdAt).toLocaleString('vi-VN')}
-                  </span>
+              <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="font-semibold text-slate-200">{r.reviewer?.name || r.authorName}</span>
+                  {r.reviewer?.isGuest != null && (
+                    <span className="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-400">
+                      {r.reviewer.isGuest ? 'Khách vãng lai' : 'Thành viên'}
+                    </span>
+                  )}
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
+                    {r.reviewer?.email && <span>✉ {r.reviewer.email}</span>}
+                    <span>· {r.product?.name}</span>
+                    {r.booking?.code && (
+                      <Link to={`/admin/orders/${r.booking.code}`} className="font-mono text-emerald-400 hover:text-emerald-300">
+                        🧾 Đơn {r.booking.code}
+                      </Link>
+                    )}
+                    <span>· {new Date(r.createdAt).toLocaleString('vi-VN')}</span>
+                  </div>
                 </div>
                 <span
-                  className={`rounded-full px-2 py-0.5 text-xs ${
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
                     r.approved ? 'bg-emerald-900 text-emerald-300' : r.rejected ? 'bg-red-950 text-red-300' : 'bg-amber-900 text-amber-300'
                   }`}
                 >
                   {STATUS_LABEL[r.approved ? 'APPROVED' : r.rejected ? 'REJECTED' : 'PENDING']}
                 </span>
               </div>
-              <div className="mb-2">
-                <Stars n={r.rating} />
-              </div>
+
+              <div className="mb-2"><Stars n={r.rating} /></div>
               {r.comment && <p className="mb-3 text-sm text-slate-300">{r.comment}</p>}
-              <div className="flex gap-2">
+
+              {/* Phản hồi đã gửi trước đó */}
+              {r.replyText && (
+                <div className="mb-3 rounded-lg border-l-2 border-emerald-700 bg-slate-900 px-3 py-2">
+                  <p className="text-xs font-medium text-emerald-400">
+                    Phản hồi đã gửi{r.repliedAt ? ` · ${new Date(r.repliedAt).toLocaleString('vi-VN')}` : ''}
+                  </p>
+                  <p className="mt-1 whitespace-pre-line text-sm text-slate-300">{r.replyText}</p>
+                </div>
+              )}
+
+              {/* Ô soạn phản hồi (gửi email trực tiếp) */}
+              {replyOpen === r.id ? (
+                <div className="mb-3 space-y-2">
+                  <textarea
+                    autoFocus
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder={`Phản hồi tới ${r.reviewer?.email || 'khách hàng'}...`}
+                    className={`${field} min-h-24 w-full`}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      disabled={replyBusy || !replyText.trim()}
+                      onClick={() => sendReply(r)}
+                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                      {replyBusy ? 'Đang gửi...' : '✉ Gửi phản hồi'}
+                    </button>
+                    <button
+                      disabled={replyBusy}
+                      onClick={() => setReplyOpen(null)}
+                      className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                    >
+                      Huỷ
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap gap-2">
+                {replyOpen !== r.id && (
+                  <button
+                    disabled={!r.reviewer?.email}
+                    onClick={() => openReply(r)}
+                    title={r.reviewer?.email ? '' : 'Đánh giá này không có email khách hàng'}
+                    className="rounded-lg border border-emerald-800 px-3 py-1.5 text-sm text-emerald-300 hover:bg-emerald-950/40 disabled:opacity-40"
+                  >
+                    {r.replyText ? '✉ Phản hồi lại' : '✉ Phản hồi khách'}
+                  </button>
+                )}
                 {!r.approved && (
                   <button
                     disabled={busyId === r.id}
                     onClick={() => approve(r)}
                     className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
                   >
-                    Duyệt hiển thị
+                    Hiện lại
                   </button>
                 )}
                 {!r.rejected && (

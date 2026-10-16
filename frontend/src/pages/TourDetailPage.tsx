@@ -182,50 +182,52 @@ export function TourDetailPage() {
             <p className="text-sm text-slate-500">Chỉ từ</p>
             <p className="text-2xl font-bold text-emerald-600">{formatPrice(tour.basePrice)}<span className="text-sm font-normal text-slate-400">/khách</span></p>
 
-            <label className="mt-4 block text-xs font-medium text-slate-500">Chọn chuyến khởi hành</label>
-            {tour.departures.length === 0 ? (
-              <p className="mt-1 text-sm text-slate-500">Hiện chưa có chuyến khởi hành nào được mở.</p>
-            ) : (
-              <select
-                value={depId ?? ''}
-                onChange={(e) => setDepId(Number(e.target.value))}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-              >
-                {tour.departures.map((d) => (
-                  <option key={d.id} value={d.id} disabled={d.slotsLeft <= 0}>
-                    {new Date(d.departureDate).toLocaleDateString('vi-VN')} — còn {d.slotsLeft} chỗ
-                  </option>
-                ))}
-              </select>
-            )}
+            {/* Đặt tour thao tác hoàn toàn bằng bàn phím: Tab giữa các ô, mũi tên ↑/↓ hoặc
+                nút +/− để đổi số khách, Enter để đặt (form submit). */}
+            <form onSubmit={(e) => { e.preventDefault(); book() }}>
+              <label htmlFor="tour-departure" className="mt-4 block text-xs font-medium text-slate-500">Chọn chuyến khởi hành</label>
+              {tour.departures.length === 0 ? (
+                <p className="mt-1 text-sm text-slate-500">Hiện chưa có chuyến khởi hành nào được mở.</p>
+              ) : (
+                <select
+                  id="tour-departure"
+                  value={depId ?? ''}
+                  onChange={(e) => setDepId(Number(e.target.value))}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                >
+                  {tour.departures.map((d) => (
+                    <option key={d.id} value={d.id} disabled={d.slotsLeft <= 0}>
+                      {new Date(d.departureDate).toLocaleDateString('vi-VN')} — còn {d.slotsLeft} chỗ
+                    </option>
+                  ))}
+                </select>
+              )}
 
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <label className="text-xs text-slate-500">
-                Người lớn
-                <input type="number" min={1} value={adults} onChange={(e) => setAdults(Math.max(1, Number(e.target.value)))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-              </label>
-              <label className="text-xs text-slate-500">
-                Trẻ em
-                <input type="number" min={0} value={children} onChange={(e) => setChildren(Math.max(0, Number(e.target.value)))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-              </label>
-            </div>
-
-            {selected && (
-              <div className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-sm">
-                <Row label={`Người lớn × ${adults}`} value={formatPrice(priceOf('ADULT') * adults)} />
-                {children > 0 && <Row label={`Trẻ em × ${children}`} value={formatPrice(priceOf('CHILD') * children)} />}
-                <Row label="Tạm tính" value={formatPrice(tentative)} strong />
-                {selected.slotsLeft < totalPax && <p className="text-xs text-red-600">Chuyến này chỉ còn {selected.slotsLeft} chỗ.</p>}
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Stepper id="tour-adults" label="Người lớn" value={adults} min={1} onChange={setAdults} />
+                <Stepper id="tour-children" label="Trẻ em" value={children} min={0} onChange={setChildren} />
               </div>
-            )}
 
-            <button
-              onClick={book}
-              disabled={!selected || selected.slotsLeft < totalPax}
-              className="mt-4 w-full rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              Đặt tour
-            </button>
+              {selected && (
+                <div className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-sm">
+                  <Row label={`Người lớn × ${adults}`} value={formatPrice(priceOf('ADULT') * adults)} />
+                  {children > 0 && <Row label={`Trẻ em × ${children}`} value={formatPrice(priceOf('CHILD') * children)} />}
+                  <Row label="Tạm tính" value={formatPrice(tentative)} strong />
+                  {selected.slotsLeft < totalPax && <p className="text-xs text-red-600">Chuyến này chỉ còn {selected.slotsLeft} chỗ.</p>}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={!selected || selected.slotsLeft < totalPax}
+                className="mt-4 w-full rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 disabled:opacity-50"
+              >
+                Đặt tour
+              </button>
+              <p className="mt-2 text-center text-xs text-slate-400">
+                Mẹo: nhấn <kbd className="rounded border border-slate-300 bg-slate-50 px-1 font-sans">Enter</kbd> để đặt nhanh.
+              </p>
+            </form>
           </div>
         </aside>
       </div>
@@ -248,6 +250,44 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <h2 className="mb-2 text-lg font-bold text-slate-900">{title}</h2>
       {children}
     </section>
+  )
+}
+// Bộ chọn số lượng thao tác bằng bàn phím: Tab tới nút −/+ (bấm Enter/Space), hoặc focus ô
+// số rồi dùng mũi tên ↑/↓. Giữ ô <input type=number> để vẫn gõ trực tiếp được.
+function Stepper({ id, label, value, min, onChange }: { id: string; label: string; value: number; min: number; onChange: (n: number) => void }) {
+  return (
+    <div>
+      <label htmlFor={id} className="text-xs text-slate-500">{label}</label>
+      <div className="mt-1 flex items-center rounded-lg border border-slate-300 focus-within:border-emerald-500">
+        <button
+          type="button"
+          onClick={() => onChange(Math.max(min, value - 1))}
+          disabled={value <= min}
+          aria-label={`Giảm ${label.toLowerCase()}`}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-l-lg text-lg text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400 disabled:opacity-40"
+        >
+          −
+        </button>
+        <input
+          id={id}
+          type="number"
+          inputMode="numeric"
+          min={min}
+          value={value}
+          onChange={(e) => onChange(Math.max(min, Number(e.target.value) || min))}
+          aria-label={`Số lượng ${label.toLowerCase()}`}
+          className="w-full min-w-0 border-x border-slate-200 py-2 text-center text-sm focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={() => onChange(value + 1)}
+          aria-label={`Tăng ${label.toLowerCase()}`}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-r-lg text-lg text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400"
+        >
+          +
+        </button>
+      </div>
+    </div>
   )
 }
 function Info({ label, value }: { label: string; value: string | null }) {

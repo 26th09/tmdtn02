@@ -7,7 +7,7 @@ const SHORTCUTS: { to: string; icon: string; title: string; desc: string }[] = [
   { to: '/admin/tours', icon: '✈', title: 'Tour', desc: 'Quản lý tour & ngày khởi hành' },
   { to: '/admin/orders', icon: '🧾', title: 'Đơn hàng', desc: 'Xử lý đơn, hủy & hoàn tiền' },
   { to: '/admin/discounts', icon: '％', title: 'Mã khuyến mại', desc: 'Tạo & quản lý ưu đãi' },
-  { to: '/admin/reviews', icon: '★', title: 'Đánh giá', desc: 'Kiểm duyệt đánh giá của khách' },
+  { to: '/admin/reviews', icon: '★', title: 'Đánh giá', desc: 'Xem & phản hồi đánh giá của khách' },
   { to: '/admin/reports', icon: '📊', title: 'Báo cáo', desc: 'Thống kê doanh thu & hoạt động' },
   { to: '/admin/users', icon: '☺', title: 'Người dùng', desc: 'Quản lý tài khoản & phân quyền' },
   { to: '/admin/settings', icon: '⚙', title: 'Cấu hình', desc: 'Thiết lập hệ thống & nhật ký' },
