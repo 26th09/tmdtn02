@@ -2,6 +2,7 @@ import { prisma } from '../../lib/prisma.js'
 import { logAdminAction } from '../../lib/auditLog.js'
 import { publicUploadUrl } from '../../lib/uploads.js'
 import { parseUtcDate } from '../../lib/booking.js'
+import { missingForTourPublish } from '../../lib/publish.js'
 
 const ACTIVE_STATUSES = ['PENDING_DEPOSIT', 'DEPOSITED', 'CONFIRMED']
 
@@ -257,6 +258,17 @@ export async function setTourVisibility(req, res, next) {
     }
     const existing = await prisma.tour.findUnique({ where: { id } })
     if (!existing) return res.status(404).json({ message: 'Không tìm thấy tour' })
+
+    // BR-79: chỉ cho công bố (VISIBLE) khi đủ trường bắt buộc + tối thiểu 5 ảnh.
+    if (status === 'VISIBLE') {
+      const missing = await missingForTourPublish(prisma, existing)
+      if (missing.length) {
+        return res.status(422).json({
+          message: 'Chưa đủ điều kiện để công bố. Vui lòng bổ sung: ' + missing.join(', ') + '.',
+          missing,
+        })
+      }
+    }
 
     let warning = null
     if (status !== 'VISIBLE') {
