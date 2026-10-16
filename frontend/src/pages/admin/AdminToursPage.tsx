@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { adminApi, type AdminTour } from '../../lib/adminApi'
+import { AdminApiError, adminApi, type AdminTour } from '../../lib/adminApi'
 
-const STATUS_LABEL: Record<string, string> = { DRAFT: 'Nháp', VISIBLE: 'Đang hiển thị', HIDDEN: 'Đã ẩn' }
+const STATUS_LABEL: Record<string, string> = { DRAFT: 'Nháp (chờ công bố)', VISIBLE: 'Đang hiển thị', HIDDEN: 'Đã ẩn' }
 const STATUS_COLOR: Record<string, string> = { DRAFT: 'bg-amber-900 text-amber-300', VISIBLE: 'bg-emerald-900 text-emerald-300', HIDDEN: 'bg-slate-800 text-slate-400' }
 
 // UC-17 – Danh sách tour trong khu vực quản trị (mọi trạng thái).
@@ -29,12 +29,15 @@ export function AdminToursPage() {
 
   async function cycleVisibility(t: AdminTour) {
     const next = t.status === 'VISIBLE' ? 'HIDDEN' : 'VISIBLE'
+    setError(null)
+    setWarning(null)
     try {
       const r = await adminApi.setTourVisibility(t.id, next)
       setWarning(r.warning?.message ?? null)
       load()
-    } catch {
-      setError('Cập nhật trạng thái thất bại')
+    } catch (err) {
+      // BR-79: công bố khi chưa đủ điều kiện -> hiển thị rõ các mục còn thiếu, giữ nguyên nháp.
+      setError(err instanceof AdminApiError ? err.message : 'Cập nhật trạng thái thất bại')
     }
   }
 
