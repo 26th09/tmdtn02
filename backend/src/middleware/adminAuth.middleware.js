@@ -13,6 +13,10 @@ export function requireAdmin(req, res, next) {
     if (payload.aud !== 'admin') {
       return res.status(403).json({ message: 'Token không hợp lệ cho khu vực quản trị' }) // BR-68
     }
+    // Chặn token mục đích ngắn hạn (challenge OTP / đổi mật khẩu) dùng làm token phiên -> giữ 2FA bắt buộc.
+    if (payload.purpose) {
+      return res.status(401).json({ message: 'Token chưa hoàn tất xác thực 2 yếu tố' })
+    }
     req.admin = payload
     next()
   } catch {

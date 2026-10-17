@@ -598,12 +598,18 @@ async function main() {
   // ---- Tài khoản quản trị mặc định (chỉ tạo nếu chưa có) ----
   const adminUsername = process.env.SEED_ADMIN_USERNAME || 'admin'
   const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'Admin@123456'
+  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@staytour.local'
   const existingAdmin = await prisma.admin.findUnique({ where: { username: adminUsername } })
   if (!existingAdmin) {
     await prisma.admin.create({
-      data: { username: adminUsername, password: await bcrypt.hash(adminPassword, 10), name: 'Quản trị viên', role: 'SUPER_ADMIN' },
+      data: {
+        username: adminUsername, email: adminEmail, password: await bcrypt.hash(adminPassword, 10),
+        name: 'Quản trị viên', role: 'SUPER_ADMIN',
+        activated: true, mustChangePassword: false, passwordChangedAt: new Date(),
+      },
     })
-    console.log(`Đã tạo tài khoản admin mặc định: ${adminUsername} / ${adminPassword} (đổi mật khẩu sau khi đăng nhập).`)
+    console.log(`Đã tạo tài khoản admin mặc định: ${adminUsername} / ${adminPassword} (email ${adminEmail}).`)
+    console.log('Đăng nhập cần OTP 2FA — nếu chưa cấu hình SMTP, OTP sẽ được in ra console này.')
   }
 
   const counts = {

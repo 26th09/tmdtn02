@@ -83,12 +83,25 @@ enum AdminRole {
 model Admin {
   id                  Int        @id @default(autoincrement())
   username            String     @unique
+  email               String?    @unique // để gửi OTP 2FA + thông tin tài khoản + nhắc hạn mật khẩu
   password            String // BR-69: băm bcrypt
   name                String?
   role                AdminRole  @default(MANAGER) // BR-68: RBAC phía máy chủ
   active              Boolean    @default(true) // BR-68: tài khoản bị khóa thì không đăng nhập được
   failedLoginAttempts Int        @default(0) // BR-70
   lockedUntil         DateTime? // BR-70
+
+  // Bảo mật nâng cao
+  activated           Boolean    @default(true) // tài khoản mới phải kích hoạt lần đầu qua link token
+  mustChangePassword  Boolean    @default(false) // buộc đổi mật khẩu (lần đầu / hết hạn)
+  passwordChangedAt   DateTime   @default(now()) // mốc tính hạn mật khẩu (đổi mỗi 30 ngày)
+  expiryReminderStage Int        @default(0) // mốc nhắc hạn đã gửi: 0 chưa, 1=7 ngày, 2=3 ngày, 3=1 ngày
+  activationTokenHash String? // băm token kích hoạt lần đầu (one-time)
+  activationExpiresAt DateTime?
+  otpHash             String? // băm OTP 2FA của phiên đăng nhập đang chờ xác thực
+  otpExpiresAt        DateTime?
+  otpAttempts         Int        @default(0)
+
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
