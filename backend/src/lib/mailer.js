@@ -195,6 +195,29 @@ export async function sendRefundProcessedEmail(to, info) {
   return true
 }
 
+// Trả lời tin nhắn liên hệ/CSKH qua email (có thể kèm ảnh/PDF/CSV).
+// attachments: [{ filename, path }] (đường dẫn tệp trên đĩa).
+export async function sendContactReplyEmail(to, info) {
+  const from = process.env.MAIL_FROM || 'StayTour <no-reply@staytour.example>'
+  const subject = info.subject ? `Re: ${info.subject}` : 'Phản hồi từ StayTour'
+  const quoted = info.originalBody
+    ? `<hr/><p style="color:#888;font-size:12px">Nội dung bạn đã gửi:</p><blockquote style="margin:8px 0;padding:8px 14px;border-left:3px solid #d6d3c4;color:#666;white-space:pre-line">${info.originalBody}</blockquote>`
+    : ''
+  const html = `
+    <p>Chào ${info.name || 'bạn'},</p>
+    <p style="white-space:pre-line">${info.body}</p>
+    <p>Trân trọng,<br/>Bộ phận CSKH StayTour</p>
+    ${quoted}
+  `
+  if (!transporter) {
+    const names = (info.attachments || []).map((a) => a.filename).join(', ')
+    console.log(`[MAILER dev] Trả lời liên hệ tới ${to}: ${info.body}${names ? ' · đính kèm: ' + names : ''}`)
+    return true
+  }
+  await transporter.sendMail({ from, to, subject, html, attachments: info.attachments || [] })
+  return true
+}
+
 // ---- Bảo mật tài khoản quản trị ----
 
 // Gửi thông tin tài khoản + liên kết kích hoạt cho admin mới (do SUPER_ADMIN tạo từ hệ thống).
@@ -215,6 +238,25 @@ export async function sendAdminCredentialsEmail(to, info) {
     return true
   }
   await transporter.sendMail({ from, to, subject: 'Tài khoản quản trị StayTour — kích hoạt', html })
+  return true
+}
+
+// Quên mật khẩu admin: gửi liên kết đặt lại + mã OTP (nhập ở trang đặt lại).
+export async function sendAdminResetEmail(to, info) {
+  const from = process.env.MAIL_FROM || 'StayTour <no-reply@staytour.example>'
+  const html = `
+    <p>Chào ${info.username || 'bạn'},</p>
+    <p>Bạn (hoặc ai đó) đã yêu cầu đặt lại mật khẩu quản trị. Bấm liên kết dưới đây để tiếp tục:</p>
+    <p><a href="${info.resetUrl}">Đặt lại mật khẩu quản trị</a></p>
+    <p>Mã OTP xác nhận của bạn là:</p>
+    <p style="font-size:26px;font-weight:bold;letter-spacing:6px;margin:14px 0">${info.otp}</p>
+    <p>Liên kết và mã có hiệu lực trong <strong>30 phút</strong> và chỉ dùng một lần. Nếu không phải bạn, hãy bỏ qua email này.</p>
+  `
+  if (!transporter) {
+    console.log(`[MAILER dev] Đặt lại mật khẩu admin tới ${to}: ${info.resetUrl} · OTP ${info.otp}`)
+    return true
+  }
+  await transporter.sendMail({ from, to, subject: 'Đặt lại mật khẩu quản trị — StayTour', html })
   return true
 }
 

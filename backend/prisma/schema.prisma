@@ -102,6 +102,12 @@ model Admin {
   otpExpiresAt        DateTime?
   otpAttempts         Int        @default(0)
 
+  // Quên mật khẩu: token qua email + OTP để đặt lại
+  resetTokenHash      String?
+  resetExpiresAt      DateTime?
+  resetOtpHash        String?
+  resetOtpAttempts    Int        @default(0)
+
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
@@ -929,4 +935,49 @@ model TravelGuideTour {
 
   @@id([guideId, tourId])
   @@index([tourId])
+}
+
+// ---- Liên hệ & chăm sóc khách hàng (đối tác/khách gửi liên hệ, admin trả lời qua email) ----
+enum ContactType {
+  CUSTOMER // khách hàng
+  PARTNER // đối tác
+}
+
+enum ContactStatus {
+  UNREAD // chưa đọc
+  READ // đã đọc
+  REPLIED // đã trả lời
+  ARCHIVED // đã lưu trữ
+}
+
+model ContactMessage {
+  id        Int            @id @default(autoincrement())
+  type      ContactType    @default(CUSTOMER)
+  name      String
+  email     String
+  phone     String?
+  subject   String?
+  body      String         @db.Text
+  status    ContactStatus  @default(UNREAD)
+  readAt    DateTime?
+  repliedAt DateTime?
+  createdAt DateTime       @default(now())
+
+  replies   ContactReply[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ContactReply {
+  id          Int            @id @default(autoincrement())
+  messageId   Int
+  message     ContactMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  adminId     Int? // người gửi (Admin); scalar, không ràng buộc quan hệ để gọn
+  body        String         @db.Text
+  attachments Json? // [{ url, name, type }]
+  toEmail     String
+  sentAt      DateTime       @default(now())
+
+  @@index([messageId])
 }

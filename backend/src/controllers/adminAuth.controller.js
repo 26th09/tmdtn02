@@ -1,9 +1,10 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { prisma } from '../lib/prisma.js'
-import { sendAdminOtpEmail } from '../lib/mailer.js'
+import { sendAdminOtpEmail, sendAdminResetEmail } from '../lib/mailer.js'
 import {
   genOtp,
+  genToken,
   hashToken,
   signPurposeToken,
   verifyPurposeToken,
@@ -216,6 +217,102 @@ export async function adminChangePassword(req, res, next) {
     })
     const token = signAdminToken(updated)
     res.json({ token, admin: { id: updated.id, username: updated.username, name: updated.name, role: updated.role } })
+  } catch (err) {
+    next(err)
+  }
+}
+
+const RESET_TTL_MIN = 30
+const RESET_OTP_MAX_ATTEMPTS = 5
+
+// Quên mật khẩu (bước 1): nhập email đã thiết lập -> gửi link token + OTP. Trả về thông báo chung
+// (không tiết lộ email có tồn tại hay không).
+export async function adminForgotPassword(req, res, next) {
+  try {
+    const email = String(req.body?.email || '').trim()
+    const generic = { message: 'Nếu email khớp tài khoản quản trị, hệ thống đã gửi liên kết đặt lại kèm mã OTP. Vui lòng kiểm tra hộp thư.' }
+    if (!email) return res.status(400).json({ message: 'Vui lòng nhập email' })
+
+    const admin = await prisma.admin.findUnique({ where: { email } })
+    if (admin && admin.active) {
+      const rawToken = genToken()
+      const otp = genOtp()
+      await prisma.admin.update({
+        where: { id: admin.id },
+        data: {
+          resetTokenHash: hashToken(rawToken),
+          resetExpiresAt: new Date(Date.now() + RESET_TTL_MIN * 60000),
+          resetOtpHash: hashToken(otp),
+          resetOtpAttempts: 0,
+        },
+      })
+      const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173'
+      const resetUrl = `${clientUrl}/admin/reset-password?token=${rawToken}`
+      await sendAdminResetEmail(email, { username: admin.username, resetUrl, otp }).catch((e) =>
+        console.error('Gửi email đặt lại mật khẩu admin thất bại:', e),
+      )
+    }
+    res.json(generic)
+  } catch (err) {
+    next(err)
+  }
+}
+
+// Ngữ cảnh đặt lại (từ link token): trả về email ẩn để hiển thị.
+export async function adminResetContext(req, res, next) {
+  try {
+    const token = String(req.params.token || '')
+    const admin = await prisma.admin.findFirst({ where: { resetTokenHash: hashToken(token) } })
+    if (!admin || !admin.resetExpiresAt || admin.resetExpiresAt < new Date()) {
+      return res.status(404).json({ message: 'Liên kết đặt lại không hợp lệ hoặc đã hết hạn' })
+    }
+    res.json({ email: maskEmail(admin.email), username: admin.username })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// Quên mật khẩu (bước 2): nhập OTP + mật khẩu mới -> đặt lại.
+export async function adminResetPassword(req, res, next) {
+  try {
+    const { token, otp, newPassword } = req.body
+    if (!token || !otp) return res.status(400).json({ message: 'Thiếu mã hoặc liên kết đặt lại' })
+    const issue = validateAdminPassword(newPassword)
+    if (issue) return res.status(400).json({ message: issue })
+
+    const admin = await prisma.admin.findFirst({ where: { resetTokenHash: hashToken(String(token)) } })
+    if (!admin || !admin.resetExpiresAt || admin.resetExpiresAt < new Date()) {
+      return res.status(404).json({ message: 'Liên kết đặt lại không hợp lệ hoặc đã hết hạn' })
+    }
+    if (admin.resetOtpAttempts >= RESET_OTP_MAX_ATTEMPTS) {
+      await prisma.admin.update({ where: { id: admin.id }, data: { resetTokenHash: null, resetOtpHash: null } })
+      return res.status(429).json({ message: 'Nhập sai OTP quá nhiều lần. Vui lòng yêu cầu đặt lại mới.' })
+    }
+    if (hashToken(String(otp)) !== admin.resetOtpHash) {
+      await prisma.admin.update({ where: { id: admin.id }, data: { resetOtpAttempts: { increment: 1 } } })
+      return res.status(401).json({ message: 'Mã OTP không đúng' })
+    }
+    if (await bcrypt.compare(newPassword, admin.password)) {
+      return res.status(400).json({ message: 'Mật khẩu mới phải khác mật khẩu hiện tại' })
+    }
+
+    await prisma.admin.update({
+      where: { id: admin.id },
+      data: {
+        password: await bcrypt.hash(newPassword, 10),
+        passwordChangedAt: new Date(),
+        mustChangePassword: false,
+        activated: true,
+        expiryReminderStage: 0,
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        resetTokenHash: null,
+        resetExpiresAt: null,
+        resetOtpHash: null,
+        resetOtpAttempts: 0,
+      },
+    })
+    res.json({ message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại.' })
   } catch (err) {
     next(err)
   }

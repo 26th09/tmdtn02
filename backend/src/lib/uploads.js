@@ -47,3 +47,37 @@ export function publicUploadUrl(filename) {
   const base = process.env.BACKEND_URL || 'http://localhost:4000'
   return `${base}/uploads/${filename}`
 }
+
+// Đường dẫn tệp trên đĩa (để nodemailer đính kèm theo path).
+export function uploadDiskPath(filename) {
+  return path.join(UPLOAD_DIR, filename)
+}
+
+// Đính kèm liên hệ/CSKH: cho phép ảnh + PDF + CSV. Tối đa 5 tệp, 10MB/tệp.
+const ATTACH_EXT = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'application/pdf': '.pdf',
+  'text/csv': '.csv',
+  'application/vnd.ms-excel': '.csv', // một số trình duyệt gắn mime này cho .csv
+}
+const attachStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+  filename: (req, file, cb) => {
+    const ext = ATTACH_EXT[file.mimetype] || path.extname(file.originalname).toLowerCase().slice(0, 8)
+    cb(null, crypto.randomBytes(16).toString('hex') + ext)
+  },
+})
+function attachFilter(req, file, cb) {
+  // Chấp nhận theo mime; .csv đôi khi là text/plain nên nới cho đuôi .csv.
+  const okMime = Boolean(ATTACH_EXT[file.mimetype])
+  const okCsv = file.mimetype === 'text/plain' && /\.csv$/i.test(file.originalname)
+  if (!okMime && !okCsv) return cb(new Error('Chỉ chấp nhận ảnh (JPG/PNG/WEBP), PDF hoặc CSV'))
+  cb(null, true)
+}
+export const uploadAttachments = multer({
+  storage: attachStorage,
+  fileFilter: attachFilter,
+  limits: { fileSize: 10 * 1024 * 1024, files: 5 },
+})

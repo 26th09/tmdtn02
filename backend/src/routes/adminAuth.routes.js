@@ -5,6 +5,9 @@ import {
   adminActivationContext,
   adminActivate,
   adminChangePassword,
+  adminForgotPassword,
+  adminResetContext,
+  adminResetPassword,
   adminMe,
 } from '../controllers/adminAuth.controller.js'
 import { requireAdmin } from '../middleware/adminAuth.middleware.js'
@@ -17,6 +20,9 @@ router.post('/verify-otp', adminVerifyOtp) // bước 2: xác thực OTP -> cấ
 router.post('/change-password', adminChangePassword) // đổi mật khẩu (lần đầu / hết hạn)
 router.get('/activate/:token', adminActivationContext) // ngữ cảnh kích hoạt lần đầu
 router.post('/activate', adminActivate) // kích hoạt lần đầu -> gửi OTP
+router.post('/forgot-password', adminForgotPassword) // quên MK: nhập email -> gửi link + OTP
+router.get('/reset-password/:token', adminResetContext) // ngữ cảnh đặt lại
+router.post('/reset-password', adminResetPassword) // đặt lại: OTP + mật khẩu mới
 router.get('/me', requireAdmin, adminMe)
 // Đăng xuất: JWT không trạng thái, phía client chỉ cần xóa token.
 

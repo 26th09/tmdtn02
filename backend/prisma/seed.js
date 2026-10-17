@@ -176,6 +176,8 @@ async function seedBookingsAndReviews(props, tours) {
 
 async function main() {
   // ---- Dọn dữ liệu cũ (theo thứ tự khoá ngoại an toàn). Giữ bảng User. ----
+  await prisma.contactReply.deleteMany().catch(() => {})
+  await prisma.contactMessage.deleteMany().catch(() => {})
   await prisma.payment.deleteMany().catch(() => {})
   await prisma.booking.deleteMany().catch(() => {})
   await prisma.review.deleteMany().catch(() => {})
@@ -595,6 +597,30 @@ async function main() {
     },
   })
 
+  // ---- Liên hệ / CSKH mẫu (chưa đọc, đã đọc, đã trả lời) ----
+  const now = Date.now()
+  const contacts = [
+    { type: 'CUSTOMER', name: 'Trần Thu Hà', email: 'thuha.tran@example.com', phone: '0903111222', subject: 'Hỏi về đổi ngày tour Hà Giang', body: 'Mình đã đặt tour Hà Giang nhưng muốn dời sang tuần sau, cho hỏi có được không ạ?', status: 'UNREAD' },
+    { type: 'PARTNER', name: 'CTY Lữ hành Biển Xanh', email: 'hoptac@bienxanh.example', phone: '02838111999', subject: 'Đề nghị hợp tác cung cấp tour miền Trung', body: 'Chúng tôi muốn hợp tác cung cấp combo tour Đà Nẵng - Hội An. Mong được trao đổi thêm.', status: 'UNREAD' },
+    { type: 'CUSTOMER', name: 'Nguyễn Minh Khôi', email: 'khoi.nguyen@example.com', phone: null, subject: 'Xuất hóa đơn VAT', body: 'Cho mình xin hóa đơn VAT cho đơn homestay Đà Lạt vừa rồi nhé.', status: 'READ' },
+    { type: 'CUSTOMER', name: 'Lê Phương Anh', email: 'phuonganh.le@example.com', phone: '0907555888', subject: 'Cảm ơn đội ngũ hỗ trợ', body: 'Chuyến đi vừa rồi rất tuyệt, cảm ơn team đã hỗ trợ nhiệt tình!', status: 'REPLIED' },
+  ]
+  for (const [i, c] of contacts.entries()) {
+    const m = await prisma.contactMessage.create({
+      data: {
+        ...c,
+        createdAt: new Date(now - (i + 1) * 3600_000),
+        readAt: c.status === 'UNREAD' ? null : new Date(now - (i + 1) * 3000_000),
+        repliedAt: c.status === 'REPLIED' ? new Date(now - 1800_000) : null,
+      },
+    })
+    if (c.status === 'REPLIED') {
+      await prisma.contactReply.create({
+        data: { messageId: m.id, body: 'Cảm ơn bạn đã tin tưởng StayTour! Rất mong được phục vụ bạn trong những hành trình tiếp theo.', toEmail: c.email, sentAt: new Date(now - 1800_000) },
+      })
+    }
+  }
+
   // ---- Tài khoản quản trị mặc định (chỉ tạo nếu chưa có) ----
   const adminUsername = process.env.SEED_ADMIN_USERNAME || 'admin'
   const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'Admin@123456'
@@ -625,6 +651,7 @@ async function main() {
     admins: await prisma.admin.count(),
     bookings: await prisma.booking.count(),
     reviews: await prisma.review.count(),
+    contacts: await prisma.contactMessage.count(),
   }
   console.log('Seed hoàn tất:', counts)
 }
