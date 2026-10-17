@@ -55,7 +55,6 @@ function TourRankChart({ tours }: { tours: TopRatedTour[] }) {
 // ẩn đánh giá vi phạm. Đánh giá mới được đăng trực tiếp (không cần phê duyệt).
 export function AdminReviewsPage() {
   const [items, setItems] = useState<AdminReview[]>([])
-  const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
@@ -73,14 +72,15 @@ export function AdminReviewsPage() {
     adminApi.topRatedTours(10).then((r) => setTopTours(r.items)).catch(() => setTopTours([]))
   }, [])
 
+  // Tải toàn bộ đánh giá (không lọc trạng thái) để xem và phản hồi.
   const load = useCallback(() => {
     setLoading(true)
     adminApi
-      .listReviews({ status: status || undefined })
+      .listReviews({})
       .then((r) => setItems(r.items))
       .catch(() => setError('Không tải được danh sách đánh giá'))
       .finally(() => setLoading(false))
-  }, [status])
+  }, [])
 
   useEffect(() => {
     load()
@@ -141,15 +141,7 @@ export function AdminReviewsPage() {
       {/* Báo cáo: biểu đồ xếp hạng tour được đánh giá tốt nhất */}
       <TourRankChart tours={topTours} />
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className={field}>
-          <option value="">Tất cả</option>
-          <option value="APPROVED">Đã đăng</option>
-          <option value="REJECTED">Đã ẩn</option>
-          <option value="PENDING">Chờ kiểm duyệt (cũ)</option>
-        </select>
-        <p className="text-xs text-slate-500">Đánh giá mới (kể cả của khách vãng lai qua liên kết 1 lần) được đăng trực tiếp.</p>
-      </div>
+      <h2 className="mb-3 font-semibold text-slate-200">Danh sách đánh giá{!loading ? ` (${items.length})` : ''}</h2>
 
       {error && <div className="mb-4 rounded-lg border border-red-800 bg-red-950/40 px-4 py-2 text-sm text-red-300">⚠️ {error}</div>}
       {replyMsg && <div className="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/40 px-4 py-2 text-sm text-emerald-300">{replyMsg}</div>}
@@ -157,7 +149,7 @@ export function AdminReviewsPage() {
       {loading ? (
         <p className="text-slate-500">Đang tải...</p>
       ) : items.length === 0 ? (
-        <p className="text-slate-500">Không có đánh giá nào ở trạng thái này.</p>
+        <p className="text-slate-500">Chưa có đánh giá nào.</p>
       ) : (
         <div className="space-y-3">
           {items.map((r) => (
