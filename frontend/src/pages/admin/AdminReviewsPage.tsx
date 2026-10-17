@@ -68,6 +68,11 @@ export function AdminReviewsPage() {
   // Báo cáo: xếp hạng tour được đánh giá tốt nhất.
   const [topTours, setTopTours] = useState<TopRatedTour[]>([])
 
+  // Bộ lọc tìm kiếm + lọc theo sao + sắp xếp (lọc phía client trên danh sách đã tải).
+  const [search, setSearch] = useState('')
+  const [starFilter, setStarFilter] = useState(0) // 0 = tất cả
+  const [sortBy, setSortBy] = useState<'newest' | 'highest' | 'lowest'>('newest')
+
   useEffect(() => {
     adminApi.topRatedTours(10).then((r) => setTopTours(r.items)).catch(() => setTopTours([]))
   }, [])
@@ -134,6 +139,23 @@ export function AdminReviewsPage() {
     }
   }
 
+  const q = search.trim().toLowerCase()
+  const filtered = items
+    .filter((r) => (starFilter ? r.rating === starFilter : true))
+    .filter((r) => {
+      if (!q) return true
+      const hay = [r.reviewer?.name, r.authorName, r.reviewer?.email, r.product?.name, r.booking?.code, r.comment]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return hay.includes(q)
+    })
+    .sort((a, b) => {
+      if (sortBy === 'highest') return b.rating - a.rating
+      if (sortBy === 'lowest') return a.rating - b.rating
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    })
+
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold text-white">Báo cáo và quản lý phản hồi của khách hàng</h1>
@@ -141,7 +163,28 @@ export function AdminReviewsPage() {
       {/* Báo cáo: biểu đồ xếp hạng tour được đánh giá tốt nhất */}
       <TourRankChart tours={topTours} />
 
-      <h2 className="mb-3 font-semibold text-slate-200">Danh sách đánh giá{!loading ? ` (${items.length})` : ''}</h2>
+      <h2 className="mb-3 font-semibold text-slate-200">Danh sách đánh giá{!loading ? ` (${filtered.length}/${items.length})` : ''}</h2>
+
+      {/* Bộ lọc: tìm theo tên khách / sản phẩm / mã đơn / nội dung + lọc sao + sắp xếp */}
+      <div className="mb-4 flex flex-wrap gap-2">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Tìm theo tên khách, sản phẩm, mã đơn, email, nội dung..."
+          className={`${field} min-w-64 flex-1`}
+        />
+        <select value={starFilter} onChange={(e) => setStarFilter(Number(e.target.value))} className={field}>
+          <option value={0}>Tất cả số sao</option>
+          {[5, 4, 3, 2, 1].map((s) => (
+            <option key={s} value={s}>{s} sao</option>
+          ))}
+        </select>
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} className={field}>
+          <option value="newest">Mới nhất</option>
+          <option value="highest">Điểm cao → thấp</option>
+          <option value="lowest">Điểm thấp → cao</option>
+        </select>
+      </div>
 
       {error && <div className="mb-4 rounded-lg border border-red-800 bg-red-950/40 px-4 py-2 text-sm text-red-300">⚠️ {error}</div>}
       {replyMsg && <div className="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/40 px-4 py-2 text-sm text-emerald-300">{replyMsg}</div>}
@@ -150,9 +193,11 @@ export function AdminReviewsPage() {
         <p className="text-slate-500">Đang tải...</p>
       ) : items.length === 0 ? (
         <p className="text-slate-500">Chưa có đánh giá nào.</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-slate-500">Không có đánh giá khớp bộ lọc.</p>
       ) : (
         <div className="space-y-3">
-          {items.map((r) => (
+          {filtered.map((r) => (
             <div key={r.id} className="rounded-xl border border-slate-800 bg-slate-950 p-4">
               <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">

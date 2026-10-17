@@ -41,8 +41,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       // giữ message mặc định
     }
-    // Phiên hết hạn/không hợp lệ ở BẤT KỲ thao tác nào (trừ chính lúc đăng nhập) -> đăng xuất + về login.
-    if (res.status === 401 && !path.includes('/admin/auth/login')) {
+    // Phiên hết hạn/không hợp lệ ở BẤT KỲ thao tác nào (trừ các bước xác thực /admin/auth/*) -> đăng xuất + về login.
+    if (res.status === 401 && !path.includes('/admin/auth/')) {
       adminToken = null
       onAdminUnauthorized()
     }
@@ -64,11 +64,39 @@ export interface AdminInfo {
   username: string
   name: string | null
   role: 'SUPER_ADMIN' | 'MANAGER'
+  email?: string | null
 }
 
-export interface AdminLoginResult {
+export interface AdminSession {
   token: string
   admin: AdminInfo
+}
+// Bước 1 đăng nhập / kích hoạt: đã đúng mật khẩu, chờ nhập OTP 2FA.
+export interface AdminOtpChallenge {
+  otpRequired: true
+  challenge: string
+  sentTo: string | null
+}
+// Sau khi vượt OTP mà mật khẩu cần đổi (lần đầu / hết hạn).
+export interface AdminPwChangeRequired {
+  requirePasswordChange: true
+  reason: 'FIRST_LOGIN' | 'EXPIRED'
+  changeToken: string
+}
+export type AdminVerifyResult = AdminSession | AdminPwChangeRequired
+
+export interface AdminAccount {
+  id: number
+  username: string
+  email: string | null
+  name: string | null
+  role: 'SUPER_ADMIN' | 'MANAGER'
+  active: boolean
+  activated: boolean
+  mustChangePassword: boolean
+  passwordChangedAt: string
+  passwordDaysLeft: number
+  createdAt: string
 }
 
 const putReq = <T>(path: string, body: unknown) =>
@@ -150,8 +178,23 @@ export interface InventoryDay {
 }
 
 export const adminApi = {
-  login: (username: string, password: string) => post<AdminLoginResult>('/api/admin/auth/login', { username, password }),
-  me: () => get<{ admin: AdminInfo & { active: boolean } }>('/api/admin/auth/me'),
+  // UC-24 – Đăng nhập 2 bước (mật khẩu -> OTP 2FA), kích hoạt lần đầu, đổi mật khẩu.
+  login: (username: string, password: string) => post<AdminOtpChallenge>('/api/admin/auth/login', { username, password }),
+  verifyOtp: (challenge: string, otp: string) => post<AdminVerifyResult>('/api/admin/auth/verify-otp', { challenge, otp }),
+  changeAdminPassword: (changeToken: string, newPassword: string) =>
+    post<AdminSession>('/api/admin/auth/change-password', { changeToken, newPassword }),
+  activationContext: (token: string) => get<{ username: string; email: string | null }>(`/api/admin/auth/activate/${token}`),
+  activate: (token: string, username: string, password: string) =>
+    post<AdminOtpChallenge>('/api/admin/auth/activate', { token, username, password }),
+  me: () =>
+    get<{ admin: AdminInfo; password: { expiresAt: string; daysLeft: number } }>('/api/admin/auth/me'),
+
+  // Quản lý tài khoản admin (chỉ SUPER_ADMIN)
+  listAdmins: () => get<{ items: AdminAccount[] }>('/api/admin/admins'),
+  createAdmin: (data: { username: string; email: string; name?: string; role: string }) =>
+    post<{ item: AdminAccount }>('/api/admin/admins', data),
+  resendAdminActivation: (id: number) => post<{ ok: boolean }>(`/api/admin/admins/${id}/resend-activation`, {}),
+  setAdminActive: (id: number, active: boolean) => patchReq<{ ok: boolean }>(`/api/admin/admins/${id}/active`, { active }),
 
   // UC-16 – Quản lý homestay
   listHomestays: (params: { status?: string; search?: string } = {}) => {
@@ -320,19 +363,7 @@ export const adminApi = {
       `/api/admin/users/customers/${id}/lock`,
       { disabled },
     ),
-  listAdmins: (params: { role?: string; status?: string; search?: string } = {}) => {
-    const qs = new URLSearchParams()
-    if (params.role) qs.set('role', params.role)
-    if (params.status) qs.set('status', params.status)
-    if (params.search) qs.set('search', params.search)
-    return get<{ items: AdminAccount[] }>(`/api/admin/users/admins?${qs.toString()}`)
-  },
-  createAdmin: (data: { username: string; password: string; name?: string; role: 'SUPER_ADMIN' | 'MANAGER' }) =>
-    post<{ admin: AdminAccount }>('/api/admin/users/admins', data),
-  updateAdminRole: (id: number, role: 'SUPER_ADMIN' | 'MANAGER') =>
-    patchReq<{ admin: AdminAccount }>(`/api/admin/users/admins/${id}/role`, { role }),
-  setAdminActive: (id: number, active: boolean) =>
-    patchReq<{ admin: AdminAccount }>(`/api/admin/users/admins/${id}/active`, { active }),
+  // (Quản lý tài khoản admin đã chuyển sang luồng bảo mật /api/admin/admins — xem phần trên.)
 
   // UC-20 – Quản lý mã khuyến mại
   listDiscounts: (params: { status?: string; search?: string } = {}) => {
@@ -529,15 +560,6 @@ export interface AdminCustomerDetail {
   disabled: boolean
   emailVerified: boolean
   googleId: string | null
-  createdAt: string
-}
-
-export interface AdminAccount {
-  id: number
-  username: string
-  name: string | null
-  role: 'SUPER_ADMIN' | 'MANAGER'
-  active: boolean
   createdAt: string
 }
 

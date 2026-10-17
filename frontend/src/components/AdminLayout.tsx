@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../lib/adminAuth'
+import { adminApi } from '../lib/adminApi'
 
 const ROLE_LABEL: Record<string, string> = {
   SUPER_ADMIN: 'Toàn quyền',
@@ -8,7 +9,7 @@ const ROLE_LABEL: Record<string, string> = {
 }
 
 // Cấu trúc menu quản trị theo nhóm chức năng.
-const NAV_GROUPS: { title: string; items: { to: string; label: string; icon: string; end?: boolean }[] }[] = [
+const NAV_GROUPS: { title: string; items: { to: string; label: string; icon: string; end?: boolean; superOnly?: boolean }[] }[] = [
   {
     title: 'Tổng quan',
     items: [{ to: '/admin', label: 'Bảng điều khiển', icon: '▦', end: true }],
@@ -30,6 +31,7 @@ const NAV_GROUPS: { title: string; items: { to: string; label: string; icon: str
       { to: '/admin/reviews', label: 'Báo cáo và quản lý phản hồi của khách hàng', icon: '★' },
       { to: '/admin/reports', label: 'Báo cáo & thống kê', icon: '📊' },
       { to: '/admin/users', label: 'Người dùng', icon: '☺' },
+      { to: '/admin/admins', label: 'Tài khoản quản trị', icon: '🔑', superOnly: true },
       { to: '/admin/settings', label: 'Cấu hình hệ thống', icon: '⚙' },
     ],
   },
@@ -46,6 +48,7 @@ const TITLES: { prefix: string; label: string }[] = [
   { prefix: '/admin/reviews', label: 'Báo cáo và quản lý phản hồi của khách hàng' },
   { prefix: '/admin/reports', label: 'Báo cáo & thống kê' },
   { prefix: '/admin/users', label: 'Quản lý người dùng' },
+  { prefix: '/admin/admins', label: 'Quản lý tài khoản quản trị' },
   { prefix: '/admin/settings', label: 'Cấu hình hệ thống' },
 ]
 
@@ -60,6 +63,12 @@ export function AdminLayout() {
     setMenuOpen(false)
   }, [pathname])
 
+  // Nhắc hạn mật khẩu: lấy số ngày còn lại (hiển thị banner khi <= 7 ngày).
+  const [pwDaysLeft, setPwDaysLeft] = useState<number | null>(null)
+  useEffect(() => {
+    adminApi.me().then((r) => setPwDaysLeft(r.password?.daysLeft ?? null)).catch(() => {})
+  }, [])
+
   const pageTitle = TITLES.find((t) => pathname.startsWith(t.prefix))?.label ?? 'Bảng điều khiển'
   const initials = (admin?.name || admin?.username || 'A').charAt(0).toUpperCase()
 
@@ -70,7 +79,7 @@ export function AdminLayout() {
         <div key={group.title}>
           <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{group.title}</p>
           <div className="space-y-1">
-            {group.items.map((item) => (
+            {group.items.filter((item) => !item.superOnly || admin?.role === 'SUPER_ADMIN').map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -193,6 +202,11 @@ export function AdminLayout() {
             </div>
           </header>
           <main className="p-6">
+            {pwDaysLeft != null && pwDaysLeft <= 7 && (
+              <div className="mb-4 rounded-lg border border-amber-700 bg-amber-950/40 px-4 py-2.5 text-sm text-amber-300">
+                🔐 Mật khẩu quản trị của bạn {pwDaysLeft <= 0 ? 'đã hết hạn' : `sẽ hết hạn trong ${pwDaysLeft} ngày`}. Vui lòng đổi mật khẩu để tránh gián đoạn (chính sách: đổi mỗi 30 ngày).
+              </div>
+            )}
             <Outlet />
           </main>
         </div>

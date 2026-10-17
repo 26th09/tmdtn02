@@ -7,6 +7,8 @@ import { AdminLayout } from './components/AdminLayout'
 import { RequireAuth } from './components/RequireAuth'
 import { RequireAdminAuth } from './components/RequireAdminAuth'
 import { AdminLoginPage } from './pages/admin/AdminLoginPage'
+import { AdminActivatePage } from './pages/admin/AdminActivatePage'
+import { AdminAccountsPage } from './pages/admin/AdminAccountsPage'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
 import { AdminHomestaysPage } from './pages/admin/AdminHomestaysPage'
 import { AdminHomestayFormPage } from './pages/admin/AdminHomestayFormPage'
@@ -56,6 +58,7 @@ function App() {
         {/* Nhóm D – Khu vực quản trị (/admin), hoàn toàn tách biệt với website chính:
             provider, layout và guard riêng, không dùng chung với Route element={<Layout />} bên dưới. */}
         <Route path="admin/login" element={<AdminLoginPage />} />
+        <Route path="admin/activate" element={<AdminActivatePage />} />
         <Route
           path="admin/*"
           element={
@@ -92,6 +95,8 @@ function App() {
           <Route path="reviews" element={<AdminReviewsPage />} />
           {/* UC-22 – Báo cáo & thống kê */}
           <Route path="reports" element={<AdminReportsPage />} />
+          {/* Quản lý tài khoản quản trị (SUPER_ADMIN) */}
+          <Route path="admins" element={<AdminAccountsPage />} />
           {/* UC-23 – Cấu hình hệ thống & nhật ký */}
           <Route path="settings" element={<AdminConfigPage />} />
         </Route>

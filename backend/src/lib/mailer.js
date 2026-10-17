@@ -195,6 +195,62 @@ export async function sendRefundProcessedEmail(to, info) {
   return true
 }
 
+// ---- Bảo mật tài khoản quản trị ----
+
+// Gửi thông tin tài khoản + liên kết kích hoạt cho admin mới (do SUPER_ADMIN tạo từ hệ thống).
+export async function sendAdminCredentialsEmail(to, info) {
+  const from = process.env.MAIL_FROM || 'StayTour <no-reply@staytour.example>'
+  const html = `
+    <p>Chào ${info.name || info.username},</p>
+    <p>Tài khoản quản trị StayTour đã được tạo cho bạn:</p>
+    <p><strong>Tên đăng nhập:</strong> ${info.username}<br/>
+       <strong>Mật khẩu tạm:</strong> ${info.tempPassword}</p>
+    <p>Lần đăng nhập đầu tiên, vui lòng kích hoạt tài khoản qua liên kết dưới đây (nhập lại tài khoản/mật khẩu,
+       xác thực OTP và đặt mật khẩu mới):</p>
+    <p><a href="${info.activationUrl}">Kích hoạt tài khoản quản trị</a></p>
+    <p>Liên kết có hiệu lực trong 48 giờ và chỉ dùng một lần. Không chia sẻ email này cho người khác.</p>
+  `
+  if (!transporter) {
+    console.log(`[MAILER dev] Tài khoản admin mới ${info.username} tới ${to}: mật khẩu tạm ${info.tempPassword} · kích hoạt ${info.activationUrl}`)
+    return true
+  }
+  await transporter.sendMail({ from, to, subject: 'Tài khoản quản trị StayTour — kích hoạt', html })
+  return true
+}
+
+// Gửi MÃ OTP 2FA cho một lần đăng nhập quản trị.
+export async function sendAdminOtpEmail(to, info) {
+  const from = process.env.MAIL_FROM || 'StayTour <no-reply@staytour.example>'
+  const html = `
+    <p>Mã xác thực đăng nhập quản trị (2FA) của bạn là:</p>
+    <p style="font-size:28px;font-weight:bold;letter-spacing:6px;margin:16px 0">${info.otp}</p>
+    <p>Mã có hiệu lực trong <strong>5 phút</strong>. Nếu không phải bạn đăng nhập, hãy đổi mật khẩu ngay.</p>
+  `
+  if (!transporter) {
+    console.log(`[MAILER dev] OTP đăng nhập admin tới ${to}: ${info.otp}`)
+    return true
+  }
+  await transporter.sendMail({ from, to, subject: 'Mã OTP đăng nhập quản trị — StayTour', html })
+  return true
+}
+
+// Nhắc admin đổi mật khẩu trước khi hết hạn (gửi ở mốc 7 / 3 / 1 ngày).
+export async function sendAdminPasswordExpiryEmail(to, info) {
+  const from = process.env.MAIL_FROM || 'StayTour <no-reply@staytour.example>'
+  const whenTxt = info.daysLeft <= 0 ? 'hôm nay' : `trong ${info.daysLeft} ngày`
+  const html = `
+    <p>Chào ${info.username},</p>
+    <p>Mật khẩu quản trị của bạn sẽ <strong>hết hạn ${whenTxt}</strong> (hạn: ${new Date(info.expiresAt).toLocaleDateString('vi-VN')}).</p>
+    <p>Vui lòng đăng nhập và đổi mật khẩu mới để không bị gián đoạn truy cập. Chính sách: đổi mật khẩu định kỳ mỗi 30 ngày.</p>
+  `
+  if (!transporter) {
+    console.log(`[MAILER dev] Nhắc hạn mật khẩu admin ${info.username} tới ${to}: còn ${info.daysLeft} ngày`)
+    return true
+  }
+  await transporter.sendMail({ from, to, subject: `Mật khẩu quản trị sắp hết hạn (còn ${info.daysLeft} ngày) — StayTour`, html })
+  return true
+}
+
 // Gửi email đặt lại mật khẩu (UC-06 1a).
 export async function sendPasswordResetEmail(to, resetUrl) {
   const from = process.env.MAIL_FROM || 'StayTour <no-reply@staytour.example>'
