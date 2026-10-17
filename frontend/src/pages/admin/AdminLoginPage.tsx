@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { AdminApiError, adminApi, type AdminSession } from '../../lib/adminApi'
 import { useAdminAuth } from '../../lib/adminAuth'
-import { OtpStep, NewPasswordStep, authField } from './adminAuthFlow'
+import { Link } from 'react-router-dom'
+import { OtpStep, NewPasswordStep, PasswordInput, authField } from './adminAuthFlow'
 
 type Phase = 'cred' | 'otp' | 'password'
 
@@ -68,8 +69,11 @@ export function AdminLoginPage() {
             </label>
             <label className="block">
               <span className="mb-1 block text-sm text-slate-300">Mật khẩu</span>
-              <input className={authField} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <PasswordInput value={password} onChange={setPassword} />
             </label>
+            <div className="text-right">
+              <Link to="/admin/forgot-password" className="text-xs text-emerald-400 hover:underline">Quên mật khẩu?</Link>
+            </div>
             {error && <div className="rounded-lg border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>}
             <button
               type="submit"

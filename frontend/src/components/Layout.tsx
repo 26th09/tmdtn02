@@ -236,6 +236,7 @@ export function Layout() {
                 <li><Link to="/search?type=TOUR" className="hover:text-white">Tour du lịch</Link></li>
                 <li><Link to="/guides" className="hover:text-white">Cẩm nang du lịch</Link></li>
                 <li><Link to="/about" className="hover:text-white">Giới thiệu website</Link></li>
+                <li><Link to="/contact" className="hover:text-white">Liên hệ</Link></li>
                 <li><Link to="/track" className="hover:text-white">Tra cứu đơn hàng</Link></li>
               </ul>
             </div>

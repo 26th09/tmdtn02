@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AdminApiError, adminApi, type AdminSession } from '../../lib/adminApi'
 import { useAdminAuth } from '../../lib/adminAuth'
-import { OtpStep, NewPasswordStep, authField } from './adminAuthFlow'
+import { OtpStep, NewPasswordStep, PasswordInput, authField } from './adminAuthFlow'
 
 type Phase = 'loading' | 'invalid' | 'cred' | 'otp' | 'password'
 
@@ -80,7 +80,7 @@ export function AdminActivatePage() {
             </label>
             <label className="block">
               <span className="mb-1 block text-sm text-slate-300">Mật khẩu tạm</span>
-              <input className={authField} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
+              <PasswordInput value={password} onChange={setPassword} autoFocus />
             </label>
             {error && <div className="rounded-lg border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</div>}
             <button

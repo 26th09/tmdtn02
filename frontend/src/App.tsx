@@ -8,7 +8,10 @@ import { RequireAuth } from './components/RequireAuth'
 import { RequireAdminAuth } from './components/RequireAdminAuth'
 import { AdminLoginPage } from './pages/admin/AdminLoginPage'
 import { AdminActivatePage } from './pages/admin/AdminActivatePage'
+import { AdminForgotPasswordPage, AdminResetPasswordPage } from './pages/admin/AdminPasswordResetPages'
 import { AdminAccountsPage } from './pages/admin/AdminAccountsPage'
+import { AdminContactsPage } from './pages/admin/AdminContactsPage'
+import { ContactPage } from './pages/ContactPage'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
 import { AdminHomestaysPage } from './pages/admin/AdminHomestaysPage'
 import { AdminHomestayFormPage } from './pages/admin/AdminHomestayFormPage'
@@ -59,6 +62,8 @@ function App() {
             provider, layout và guard riêng, không dùng chung với Route element={<Layout />} bên dưới. */}
         <Route path="admin/login" element={<AdminLoginPage />} />
         <Route path="admin/activate" element={<AdminActivatePage />} />
+        <Route path="admin/forgot-password" element={<AdminForgotPasswordPage />} />
+        <Route path="admin/reset-password" element={<AdminResetPasswordPage />} />
         <Route
           path="admin/*"
           element={
@@ -97,6 +102,8 @@ function App() {
           <Route path="reports" element={<AdminReportsPage />} />
           {/* Quản lý tài khoản quản trị (SUPER_ADMIN) */}
           <Route path="admins" element={<AdminAccountsPage />} />
+          {/* Chăm sóc khách hàng / liên hệ */}
+          <Route path="contacts" element={<AdminContactsPage />} />
           {/* UC-23 – Cấu hình hệ thống & nhật ký */}
           <Route path="settings" element={<AdminConfigPage />} />
         </Route>
@@ -115,6 +122,7 @@ function App() {
           <Route path="guides/:slug" element={<GuideDetailPage />} />
           {/* Giới thiệu website */}
           <Route path="about" element={<AboutPage />} />
+          <Route path="contact" element={<ContactPage />} />
           {/* UC-03 – Xem chi tiết & tình trạng còn trống */}
           <Route path="product/:slug" element={<ProductDetailPage />} />
           {/* UC-03 – Chi tiết tour (bảng riêng) */}

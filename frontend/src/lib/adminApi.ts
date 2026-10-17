@@ -188,6 +188,10 @@ export const adminApi = {
     post<AdminOtpChallenge>('/api/admin/auth/activate', { token, username, password }),
   me: () =>
     get<{ admin: AdminInfo; password: { expiresAt: string; daysLeft: number } }>('/api/admin/auth/me'),
+  forgotPassword: (email: string) => post<{ message: string }>('/api/admin/auth/forgot-password', { email }),
+  resetContext: (token: string) => get<{ email: string | null; username: string }>(`/api/admin/auth/reset-password/${token}`),
+  resetPassword: (token: string, otp: string, newPassword: string) =>
+    post<{ message: string }>('/api/admin/auth/reset-password', { token, otp, newPassword }),
 
   // Quản lý tài khoản admin (chỉ SUPER_ADMIN)
   listAdmins: () => get<{ items: AdminAccount[] }>('/api/admin/admins'),
@@ -394,6 +398,33 @@ export const adminApi = {
   topRatedTours: (limit = 10) =>
     get<{ items: TopRatedTour[] }>(`/api/admin/reviews/top-tours?limit=${limit}`),
 
+  // Liên hệ & chăm sóc khách hàng
+  listContacts: (params: { status?: string; type?: string } = {}) => {
+    const qs = new URLSearchParams()
+    if (params.status) qs.set('status', params.status)
+    if (params.type) qs.set('type', params.type)
+    return get<{ items: ContactMessage[]; counts: ContactCounts }>(`/api/admin/contacts?${qs.toString()}`)
+  },
+  getContact: (id: number) => get<{ item: ContactMessage }>(`/api/admin/contacts/${id}`),
+  setContactStatus: (id: number, status: string) =>
+    patchReq<{ item: ContactMessage }>(`/api/admin/contacts/${id}/status`, { status }),
+  listSentReplies: () => get<{ items: ContactReply[] }>('/api/admin/contacts/sent'),
+  replyContact: async (id: number, body: string, files: File[]) => {
+    const form = new FormData()
+    form.append('body', body)
+    files.forEach((f) => form.append('files', f))
+    const res = await fetch(`${API_URL}/api/admin/contacts/${id}/reply`, {
+      method: 'POST',
+      headers: adminToken ? { Authorization: `Bearer ${adminToken}` } : undefined,
+      body: form,
+    })
+    if (!res.ok) {
+      const b = await res.json().catch(() => ({}))
+      throw new AdminApiError(res.status, b.message || 'Gửi trả lời thất bại')
+    }
+    return res.json() as Promise<{ reply: ContactReply }>
+  },
+
   // UC-22 – Báo cáo & thống kê
   getReports: (params: { from?: string; to?: string } = {}) => {
     const qs = new URLSearchParams()
@@ -495,6 +526,42 @@ export interface AdminReports {
   ordersByStatus: { status: string; count: number }[]
   topTours: { productId: number; name?: string; slug?: string; bookingsCount: number; seats: number }[]
   homestayOccupancy: { productId: number; name?: string; slug?: string; totalRoomNights: number; bookedRoomNights: number; rate: number }[]
+}
+
+export interface ContactAttachment {
+  url: string
+  name: string
+  type: string
+}
+export interface ContactReply {
+  id: number
+  messageId: number
+  adminId: number | null
+  body: string
+  attachments: ContactAttachment[] | null
+  toEmail: string
+  sentAt: string
+  message?: { id: number; name: string; email: string; subject: string | null; type: string }
+}
+export interface ContactMessage {
+  id: number
+  type: 'CUSTOMER' | 'PARTNER'
+  name: string
+  email: string
+  phone: string | null
+  subject: string | null
+  body: string
+  status: 'UNREAD' | 'READ' | 'REPLIED' | 'ARCHIVED'
+  readAt: string | null
+  repliedAt: string | null
+  createdAt: string
+  _count?: { replies: number }
+  replies?: ContactReply[]
+}
+export interface ContactCounts {
+  unread: number
+  total: number
+  replied: number
 }
 
 export interface TopRatedTour {
