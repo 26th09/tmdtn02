@@ -75,6 +75,23 @@ export async function listReviews(req, res, next) {
   }
 }
 
+// Báo cáo: xếp hạng tour được đánh giá tốt nhất (điểm trung bình cao nhất, ưu tiên nhiều lượt).
+// Chỉ tính tour đã có đánh giá (reviewCount > 0).
+export async function topRatedTours(req, res, next) {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 10, 50)
+    const items = await prisma.tour.findMany({
+      where: { reviewCount: { gt: 0 } },
+      select: { id: true, title: true, slug: true, avgRating: true, reviewCount: true },
+      orderBy: [{ avgRating: 'desc' }, { reviewCount: 'desc' }],
+      take: limit,
+    })
+    res.json({ items })
+  } catch (err) {
+    next(err)
+  }
+}
+
 // UC-21 (3) – Hiện lại một đánh giá đã bị ẩn (hoặc duyệt thủ công nếu còn ở trạng thái chờ cũ).
 export async function approveReview(req, res, next) {
   try {

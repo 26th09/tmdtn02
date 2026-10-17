@@ -360,6 +360,8 @@ export const adminApi = {
       `/api/admin/reviews/${id}/reply`,
       { message },
     ),
+  topRatedTours: (limit = 10) =>
+    get<{ items: TopRatedTour[] }>(`/api/admin/reviews/top-tours?limit=${limit}`),
 
   // UC-22 – Báo cáo & thống kê
   getReports: (params: { from?: string; to?: string } = {}) => {
@@ -462,6 +464,14 @@ export interface AdminReports {
   ordersByStatus: { status: string; count: number }[]
   topTours: { productId: number; name?: string; slug?: string; bookingsCount: number; seats: number }[]
   homestayOccupancy: { productId: number; name?: string; slug?: string; totalRoomNights: number; bookedRoomNights: number; rate: number }[]
+}
+
+export interface TopRatedTour {
+  id: number
+  title: string
+  slug: string
+  avgRating: number
+  reviewCount: number
 }
 
 export interface AdminReview {

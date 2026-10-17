@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { approveReview, listReviews, rejectReview, replyReview } from '../../controllers/admin/reviews.controller.js'
+import { approveReview, listReviews, rejectReview, replyReview, topRatedTours } from '../../controllers/admin/reviews.controller.js'
 import { requireAdmin } from '../../middleware/adminAuth.middleware.js'
 
 const router = Router()
@@ -8,6 +8,7 @@ const router = Router()
 router.use(requireAdmin)
 
 router.get('/', listReviews)
+router.get('/top-tours', topRatedTours)
 router.patch('/:id/approve', approveReview)
 router.patch('/:id/reject', rejectReview)
 router.post('/:id/reply', replyReview)

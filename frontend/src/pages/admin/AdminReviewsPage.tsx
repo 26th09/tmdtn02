@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AdminApiError, adminApi, type AdminReview } from '../../lib/adminApi'
+import { AdminApiError, adminApi, type AdminReview, type TopRatedTour } from '../../lib/adminApi'
 
 const field = 'rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none'
 
@@ -8,6 +8,47 @@ const STATUS_LABEL: Record<string, string> = { PENDING: 'Chờ kiểm duyệt', 
 
 function Stars({ n }: { n: number }) {
   return <span className="text-amber-400">{'★'.repeat(n)}{'☆'.repeat(5 - n)}</span>
+}
+
+// Biểu đồ thanh ngang: xếp hạng tour theo điểm đánh giá trung bình (thang 5).
+function TourRankChart({ tours }: { tours: TopRatedTour[] }) {
+  if (!tours.length) return null
+  return (
+    <div className="mb-6 rounded-xl border border-slate-800 bg-slate-950 p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-semibold text-slate-200">🏆 Tour được đánh giá tốt nhất</h2>
+        <span className="text-xs text-slate-500">Điểm trung bình (thang 5) · {tours.length} tour</span>
+      </div>
+      <ul className="space-y-2.5">
+        {tours.map((t, i) => {
+          const pct = Math.max(4, (t.avgRating / 5) * 100)
+          return (
+            <li key={t.id} className="flex items-center gap-3">
+              <span className="w-5 shrink-0 text-right text-xs font-semibold text-slate-500">{i + 1}</span>
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <Link to={`/tour/${t.slug}`} target="_blank" className="truncate text-sm text-slate-200 hover:text-emerald-400">
+                    {t.title}
+                  </Link>
+                  <span className="shrink-0 text-xs">
+                    <span className="font-semibold text-amber-400">★ {t.avgRating.toFixed(1)}</span>
+                    <span className="ml-1 text-slate-500">({t.reviewCount} lượt)</span>
+                  </span>
+                </div>
+                <div
+                  className="h-2.5 w-full overflow-hidden rounded-full bg-slate-800"
+                  role="img"
+                  aria-label={`${t.title}: ${t.avgRating.toFixed(1)} trên 5, ${t.reviewCount} lượt đánh giá`}
+                >
+                  <div className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
 }
 
 // UC-21 – Quản lý đánh giá: xem người đánh giá + đơn hàng liên kết, phản hồi khách qua email,
@@ -24,6 +65,13 @@ export function AdminReviewsPage() {
   const [replyText, setReplyText] = useState('')
   const [replyBusy, setReplyBusy] = useState(false)
   const [replyMsg, setReplyMsg] = useState<string | null>(null)
+
+  // Báo cáo: xếp hạng tour được đánh giá tốt nhất.
+  const [topTours, setTopTours] = useState<TopRatedTour[]>([])
+
+  useEffect(() => {
+    adminApi.topRatedTours(10).then((r) => setTopTours(r.items)).catch(() => setTopTours([]))
+  }, [])
 
   const load = useCallback(() => {
     setLoading(true)
@@ -89,6 +137,9 @@ export function AdminReviewsPage() {
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold text-white">Báo cáo và quản lý phản hồi của khách hàng</h1>
+
+      {/* Báo cáo: biểu đồ xếp hạng tour được đánh giá tốt nhất */}
+      <TourRankChart tours={topTours} />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <select value={status} onChange={(e) => setStatus(e.target.value)} className={field}>
