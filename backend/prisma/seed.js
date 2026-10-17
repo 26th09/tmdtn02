@@ -41,6 +41,139 @@ function addDays(n) {
   return d
 }
 
+// Sinh đơn hàng + đánh giá THẬT cho homestay & tour, rồi tính lại điểm trung bình/số lượt.
+// Mục tiêu: báo cáo (biểu đồ xếp hạng, danh sách đánh giá) và trang Quản lý đơn phản ánh đúng dữ liệu.
+async function seedBookingsAndReviews(props, tours) {
+  // Vài tài khoản thành viên để có cả đánh giá của "Thành viên" lẫn "Khách vãng lai".
+  const memberSeed = [
+    { email: 'an.nguyen@example.com', name: 'Nguyễn Văn An', phone: '0901000001' },
+    { email: 'binh.tran@example.com', name: 'Trần Thị Bình', phone: '0901000002' },
+    { email: 'cuong.le@example.com', name: 'Lê Hoàng Cường', phone: '0901000003' },
+  ]
+  const members = []
+  for (const m of memberSeed) {
+    const u = await prisma.user.upsert({
+      where: { email: m.email },
+      update: { name: m.name, phone: m.phone, emailVerified: true },
+      create: { email: m.email, name: m.name, phone: m.phone, emailVerified: true, password: await bcrypt.hash('User@123456', 10) },
+    })
+    members.push(u)
+  }
+
+  const guests = [
+    ['Phạm Thu Hà', 'ha.pham@example.com', '0902000001'],
+    ['Đỗ Minh Quân', 'quan.do@example.com', '0902000002'],
+    ['Vũ Ngọc Mai', 'mai.vu@example.com', '0902000003'],
+    ['Hoàng Anh Tú', 'tu.hoang@example.com', '0902000004'],
+    ['Bùi Thanh Tâm', 'tam.bui@example.com', '0902000005'],
+    ['Ngô Gia Bảo', 'bao.ngo@example.com', '0902000006'],
+  ]
+  const comments = [
+    'Chuyến đi tuyệt vời, hướng dẫn viên nhiệt tình!',
+    'Cảnh đẹp, lịch trình hợp lý, chắc chắn sẽ quay lại.',
+    'Dịch vụ tốt, ăn uống ngon, rất đáng tiền.',
+    'Phòng sạch sẽ, nhân viên thân thiện.',
+    'Khá hài lòng, chỉ tiếc thời tiết chưa thật đẹp.',
+    'Trải nghiệm đáng nhớ, cảm ơn StayTour!',
+    'Mọi thứ ổn, sẽ giới thiệu cho bạn bè.',
+  ]
+  const ratingPatterns = [5, 4, 5, 5, 4, 3, 5, 4, 5, 3, 4, 5]
+  const pick = (arr, k) => arr[((k % arr.length) + arr.length) % arr.length]
+
+  let seq = 0
+  const code = (p) => `${p}${(Date.now() % 100000).toString().padStart(5, '0')}${(++seq).toString().padStart(4, '0')}`
+  let gi = 0 // luân phiên khách / comment
+
+  async function makeBooking({ type, status, tourId, tourDepartureId, propertyId, roomTypeId, basePrice, days, pastOffset, rating }) {
+    const member = gi % 3 === 0 ? pick(members, gi) : null
+    const g = pick(guests, gi)
+    const name = member ? member.name : g[0]
+    const email = member ? member.email : g[1]
+    const phone = member ? member.phone : g[2]
+    const adults = 2
+    const children = gi % 4 === 0 ? 1 : 0
+    const nights = type === 'HOMESTAY' ? Math.max(1, days || 2) : null
+    const checkIn = addDays(-pastOffset)
+    const checkOut = type === 'HOMESTAY' ? addDays(-pastOffset + (nights || 2)) : null
+    const total = type === 'HOMESTAY'
+      ? basePrice * (nights || 2)
+      : basePrice * adults + Math.round(basePrice * 0.7) * children
+    const deposit = Math.round(total * 0.3)
+    const paid = status !== 'PENDING_DEPOSIT' && status !== 'CANCELLED'
+    const b = await prisma.booking.create({
+      data: {
+        code: code(type === 'TOUR' ? 'TR' : 'HS'),
+        type, status,
+        tourId: tourId ?? null, tourDepartureId: tourDepartureId ?? null,
+        propertyId: propertyId ?? null, roomTypeId: roomTypeId ?? null,
+        userId: member?.id ?? null,
+        guestName: name, guestEmail: email, guestPhone: phone,
+        checkIn, checkOut, nights,
+        guests: adults, children,
+        totalPrice: total, depositAmount: deposit, remainingAmount: total - deposit,
+        paymentMethod: paid ? (gi % 2 === 0 ? 'VNPAY' : 'COD') : null,
+        depositPaidAt: paid ? checkIn : null,
+        cancelledAt: status === 'CANCELLED' ? checkIn : null,
+        createdAt: addDays(pastOffset > 0 ? -pastOffset - 5 : -2),
+      },
+    })
+    if (rating != null && status === 'COMPLETED') {
+      await prisma.review.create({
+        data: {
+          productType: type, tourId: tourId ?? null, propertyId: propertyId ?? null,
+          bookingId: b.id, authorName: name, rating, comment: pick(comments, gi), approved: true, createdAt: checkIn,
+        },
+      })
+    }
+    gi++
+    return b
+  }
+
+  // Tour: đơn hoàn tất + đánh giá (số lượng & điểm khác nhau để xếp hạng có ý nghĩa) + vài đơn chưa hoàn tất.
+  for (const [i, t] of tours.entries()) {
+    const n = 3 + (i % 5)
+    for (let k = 0; k < n; k++) {
+      await makeBooking({
+        type: 'TOUR', status: 'COMPLETED', tourId: t.id, tourDepartureId: pick(t.departures, k)?.id,
+        basePrice: t.basePrice, days: t.days, pastOffset: 12 + ((i + k) % 50), rating: pick(ratingPatterns, i + k),
+      })
+    }
+    if (i % 2 === 0) await makeBooking({ type: 'TOUR', status: 'CONFIRMED', tourId: t.id, tourDepartureId: t.departures[0]?.id, basePrice: t.basePrice, days: t.days, pastOffset: -10 })
+    if (i % 3 === 0) await makeBooking({ type: 'TOUR', status: 'PENDING_DEPOSIT', tourId: t.id, tourDepartureId: t.departures[1]?.id, basePrice: t.basePrice, days: t.days, pastOffset: -24 })
+    if (i % 5 === 0) await makeBooking({ type: 'TOUR', status: 'CANCELLED', tourId: t.id, tourDepartureId: t.departures[0]?.id, basePrice: t.basePrice, days: t.days, pastOffset: 8 })
+  }
+
+  // Homestay: đơn hoàn tất + đánh giá + vài đơn đang xử lý.
+  for (const [i, p] of props.entries()) {
+    const n = 2 + (i % 4)
+    for (let k = 0; k < n; k++) {
+      const rt = pick(p.roomTypes, k)
+      await makeBooking({
+        type: 'HOMESTAY', status: 'COMPLETED', propertyId: p.id, roomTypeId: rt?.id,
+        basePrice: rt?.price || p.basePrice, days: 2, pastOffset: 15 + ((i + k) % 45), rating: pick(ratingPatterns, i + k + 2),
+      })
+    }
+    if (i % 2 === 0) {
+      const rt = p.roomTypes[0]
+      await makeBooking({ type: 'HOMESTAY', status: 'DEPOSITED', propertyId: p.id, roomTypeId: rt?.id, basePrice: rt?.price || p.basePrice, days: 3, pastOffset: -12 })
+    }
+  }
+
+  // Tính lại điểm trung bình / số lượt từ đánh giá thật (để biểu đồ & chi tiết khớp danh sách).
+  for (const t of tours) {
+    const rs = await prisma.review.findMany({ where: { tourId: t.id, approved: true }, select: { rating: true } })
+    const count = rs.length
+    const avg = count ? rs.reduce((s, r) => s + r.rating, 0) / count : 0
+    await prisma.tour.update({ where: { id: t.id }, data: { reviewCount: count, avgRating: Math.round(avg * 10) / 10 } })
+  }
+  for (const p of props) {
+    const rs = await prisma.review.findMany({ where: { propertyId: p.id, approved: true }, select: { rating: true } })
+    const count = rs.length
+    const avg = count ? rs.reduce((s, r) => s + r.rating, 0) / count : 0
+    await prisma.property.update({ where: { id: p.id }, data: { reviewCount: count, avgRating: Math.round(avg * 10) / 10 } })
+  }
+}
+
 async function main() {
   // ---- Dọn dữ liệu cũ (theo thứ tự khoá ngoại an toàn). Giữ bảng User. ----
   await prisma.payment.deleteMany().catch(() => {})
@@ -215,18 +348,20 @@ async function main() {
     },
   ]
 
+  const createdProps = [] // thu thập để sinh đơn + đánh giá thật
   for (const [hi, h] of homestays.entries()) {
     const prop = await prisma.property.create({
       data: {
         propertyCode: h.propertyCode, name: h.name, slug: h.slug, propertyType: 'HOMESTAY',
         shortDescription: h.desc, description: h.desc, address: h.address,
         checkInTime: '14:00', checkOutTime: '12:00', basePrice: h.basePrice, depositRate: 30,
-        cancellationPolicyId: policy.id, avgRating: 4.6, reviewCount: 12,
+        cancellationPolicyId: policy.id, avgRating: 0, reviewCount: 0, // tính lại từ đánh giá thật bên dưới
         status: 'VISIBLE', thumbnail: img(h.thumb), isFeatured: true,
         // Thư viện 5 ảnh cho trang chi tiết.
         images: { create: gallery(h.thumb, hi + 1, 5) },
       },
     })
+    const roomTypes = []
     for (const [ri, r] of h.rooms.entries()) {
       const rt = await prisma.roomType.create({
         data: {
@@ -237,6 +372,7 @@ async function main() {
           images: { create: gallery(h.thumb, hi + ri + 2, 3) },
         },
       })
+      roomTypes.push({ id: rt.id, price: r.price })
       // Mở lịch tồn phòng 120 ngày tới.
       const rows = []
       for (let i = 1; i <= 120; i++) {
@@ -244,6 +380,7 @@ async function main() {
       }
       await prisma.roomInventory.createMany({ data: rows })
     }
+    createdProps.push({ id: prop.id, name: prop.name, basePrice: h.basePrice, roomTypes })
   }
 
   // ---- TOUR (Tour + TourDeparture + TourPrice) ----
@@ -375,18 +512,21 @@ async function main() {
     },
   ]
 
+  const createdTours = [] // thu thập để sinh đơn + đánh giá thật
   for (const [ti, t] of tours.entries()) {
     const tour = await prisma.tour.create({
       data: {
         tourCode: t.tourCode, title: t.title, slug: t.slug, shortDescription: t.desc, description: t.desc,
         durationDays: t.days, durationNights: t.nights, departurePoint: t.from, destination: t.dest,
         minPax: 1, maxPax: 25, basePrice: t.basePrice, depositRate: 30, cancellationPolicyId: policy.id,
-        avgRating: 4.7, reviewCount: 20, status: 'VISIBLE', thumbnail: img(t.thumb), isFeatured: true,
+        avgRating: 0, reviewCount: 0, // tính lại từ đánh giá thật bên dưới
+        status: 'VISIBLE', thumbnail: img(t.thumb), isFeatured: true,
         // Thư viện 5 ảnh cho trang chi tiết tour.
         images: { create: gallery(t.thumb, ti + 2, 5) },
       },
     })
     // 3 chuyến khởi hành sắp tới.
+    const departures = []
     for (const offset of [10, 24, 40]) {
       const dep = await prisma.tourDeparture.create({
         data: {
@@ -394,6 +534,7 @@ async function main() {
           totalSlots: 20, bookedSlots: 0, heldSlots: 0, status: 'OPEN',
         },
       })
+      departures.push({ id: dep.id })
       await prisma.tourPrice.createMany({
         data: [
           { departureId: dep.id, paxType: 'ADULT', price: t.basePrice, description: 'Người lớn' },
@@ -401,7 +542,11 @@ async function main() {
         ],
       })
     }
+    createdTours.push({ id: tour.id, title: tour.title, basePrice: t.basePrice, days: t.days, departures })
   }
+
+  // ---- Đơn hàng + đánh giá THẬT (để báo cáo phản ánh đúng dữ liệu) ----
+  await seedBookingsAndReviews(createdProps, createdTours)
 
   // ---- Khu vực du lịch phổ biến (trang chủ) ----
   await prisma.area.createMany({
@@ -472,6 +617,8 @@ async function main() {
     infoArticles: await prisma.infoArticle.count(),
     travelGuides: await prisma.travelGuide.count(),
     admins: await prisma.admin.count(),
+    bookings: await prisma.booking.count(),
+    reviews: await prisma.review.count(),
   }
   console.log('Seed hoàn tất:', counts)
 }
