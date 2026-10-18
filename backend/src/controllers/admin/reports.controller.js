@@ -80,6 +80,42 @@ export async function getReports(req, res, next) {
       .map((o) => ({ ...o, rate: o.totalRoomNights > 0 ? Math.round((o.bookedRoomNights / o.totalRoomNights) * 1000) / 10 : 0 }))
       .sort((a, b) => b.rate - a.rate)
 
+    // ----- Doanh thu theo NHÓM DỊCH VỤ (gồm cả nhóm con qua cộng dồn lên cha) -----
+    const paidForGroups = await prisma.payment.findMany({
+      where: { status: 'SUCCESS', createdAt: { gte: from, lte: to } },
+      select: { amount: true, booking: { select: { tourId: true, propertyId: true } } },
+    })
+    const tourRev = new Map()
+    const propRev = new Map()
+    for (const p of paidForGroups) {
+      if (p.booking?.tourId) tourRev.set(p.booking.tourId, (tourRev.get(p.booking.tourId) || 0) + p.amount)
+      else if (p.booking?.propertyId) propRev.set(p.booking.propertyId, (propRev.get(p.booking.propertyId) || 0) + p.amount)
+    }
+    const [sgt, sgp, flatGroups] = await Promise.all([
+      prisma.serviceGroupTour.findMany({ select: { groupId: true, tourId: true } }),
+      prisma.serviceGroupProperty.findMany({ select: { groupId: true, propertyId: true } }),
+      prisma.serviceGroup.findMany({ select: { id: true, name: true, parentId: true } }),
+    ])
+    const parentOf = new Map(flatGroups.map((g) => [g.id, g.parentId]))
+    const nameOf = new Map(flatGroups.map((g) => [g.id, g.name]))
+    const direct = new Map()
+    for (const m of sgt) direct.set(m.groupId, (direct.get(m.groupId) || 0) + (tourRev.get(m.tourId) || 0))
+    for (const m of sgp) direct.set(m.groupId, (direct.get(m.groupId) || 0) + (propRev.get(m.propertyId) || 0))
+    const groupTotal = new Map()
+    for (const [gid, rev] of direct) {
+      let cur = gid
+      const seen = new Set()
+      while (cur != null && !seen.has(cur)) {
+        seen.add(cur)
+        groupTotal.set(cur, (groupTotal.get(cur) || 0) + rev)
+        cur = parentOf.get(cur)
+      }
+    }
+    const revenueByGroup = [...groupTotal.entries()]
+      .map(([id, amount]) => ({ id, name: nameOf.get(id), amount }))
+      .filter((g) => g.amount > 0)
+      .sort((a, b) => b.amount - a.amount)
+
     // 2a: không có dữ liệu trong kỳ — frontend tự hiển thị thông báo khi mọi mảng đều rỗng.
     res.json({
       range: { from: from.toISOString(), to: to.toISOString() },
@@ -87,6 +123,7 @@ export async function getReports(req, res, next) {
       ordersByStatus,
       topTours,
       homestayOccupancy,
+      revenueByGroup,
     })
   } catch (err) {
     next(err)

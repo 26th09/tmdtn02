@@ -12,7 +12,7 @@ export async function listDiscounts(req, res, next) {
 
     const items = await prisma.discountCode.findMany({
       where,
-      include: { product: { select: { name: true, slug: true } } },
+      include: { product: { select: { name: true, slug: true } }, serviceGroup: { select: { id: true, name: true } } },
       orderBy: { createdAt: 'desc' },
     })
     res.json({ items })
@@ -73,6 +73,7 @@ function toData(body) {
     minOrderValue: body.minOrderValue !== undefined ? Number(body.minOrderValue) : 0,
     scope: body.scope || 'ALL',
     productId: body.productId != null && body.productId !== '' ? Number(body.productId) : null,
+    serviceGroupId: body.serviceGroupId != null && body.serviceGroupId !== '' ? Number(body.serviceGroupId) : null,
     audience: body.audience || 'ALL',
     startAt: body.startAt ? new Date(body.startAt) : null,
     endAt: body.endAt ? new Date(body.endAt) : null,

@@ -174,10 +174,59 @@ async function seedBookingsAndReviews(props, tours) {
   }
 }
 
+const slugForGroup = (s) =>
+  String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D')
+    .toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+
+// Tạo cây nhóm dịch vụ mẫu và gắn tour/homestay theo từ khóa tên (để demo lọc/báo cáo/KM theo nhóm).
+async function seedServiceGroups(props, tours) {
+  let ord = 0
+  const mk = async (name, parentId = null) =>
+    prisma.serviceGroup.create({ data: { name, slug: slugForGroup(name), parentId, order: ord++ } })
+
+  const bac = await mk('Miền Bắc')
+  const tayBac = await mk('Tây Bắc', bac.id)
+  const sapa = await mk('Sapa – Lào Cai', tayBac.id)
+  const haGiang = await mk('Hà Giang', tayBac.id)
+  const mocChau = await mk('Mộc Châu – Sơn La', tayBac.id)
+  const ninhBinh = await mk('Ninh Bình', bac.id)
+  const trung = await mk('Miền Trung')
+  const daNang = await mk('Đà Nẵng – Huế – Quảng Bình', trung.id)
+  const quyNhon = await mk('Quy Nhơn – Phú Yên', trung.id)
+  const nam = await mk('Miền Nam')
+  const phuQuoc = await mk('Phú Quốc – Kiên Giang', nam.id)
+  const mienTay = await mk('Miền Tây', nam.id)
+
+  // leaf group -> từ khóa khớp tên tour/homestay
+  const rules = [
+    [sapa.id, ['sapa', 'tà xùa', 'fansipan']],
+    [haGiang.id, ['hà giang']],
+    [mocChau.id, ['mộc châu', 'sơn la']],
+    [ninhBinh.id, ['ninh bình', 'tràng an', 'tam chúc', 'bái đính', 'hang múa']],
+    [daNang.id, ['đà nẵng', 'hội an', 'huế', 'phong nha', 'quảng bình', 'bà nà']],
+    [quyNhon.id, ['quy nhơn', 'kỳ co', 'eo gió', 'phú yên', 'bình định']],
+    [phuQuoc.id, ['phú quốc']],
+    [mienTay.id, ['miền tây', 'cái răng', 'cần thơ', 'an giang', 'châu đốc']],
+  ]
+  const low = (s) => (s || '').toLowerCase()
+  for (const [groupId, kws] of rules) {
+    for (const t of tours) if (kws.some((k) => low(t.title).includes(k))) {
+      await prisma.serviceGroupTour.upsert({ where: { groupId_tourId: { groupId, tourId: t.id } }, update: {}, create: { groupId, tourId: t.id } })
+    }
+    for (const p of props) if (kws.some((k) => low(p.name).includes(k))) {
+      await prisma.serviceGroupProperty.upsert({ where: { groupId_propertyId: { groupId, propertyId: p.id } }, update: {}, create: { groupId, propertyId: p.id } })
+    }
+  }
+}
+
 async function main() {
   // ---- Dọn dữ liệu cũ (theo thứ tự khoá ngoại an toàn). Giữ bảng User. ----
   await prisma.contactReply.deleteMany().catch(() => {})
   await prisma.contactMessage.deleteMany().catch(() => {})
+  await prisma.serviceGroupTour.deleteMany().catch(() => {})
+  await prisma.serviceGroupProperty.deleteMany().catch(() => {})
+  await prisma.serviceGroupGuide.deleteMany().catch(() => {})
+  await prisma.serviceGroup.deleteMany().catch(() => {})
   await prisma.payment.deleteMany().catch(() => {})
   await prisma.booking.deleteMany().catch(() => {})
   await prisma.review.deleteMany().catch(() => {})
@@ -550,6 +599,9 @@ async function main() {
   // ---- Đơn hàng + đánh giá THẬT (để báo cáo phản ánh đúng dữ liệu) ----
   await seedBookingsAndReviews(createdProps, createdTours)
 
+  // ---- Nhóm dịch vụ (cây phân cấp theo vùng/địa phương) + gắn tour/homestay ----
+  await seedServiceGroups(createdProps, createdTours)
+
   // ---- Khu vực du lịch phổ biến (trang chủ) ----
   await prisma.area.createMany({
     data: [
@@ -652,6 +704,7 @@ async function main() {
     bookings: await prisma.booking.count(),
     reviews: await prisma.review.count(),
     contacts: await prisma.contactMessage.count(),
+    serviceGroups: await prisma.serviceGroup.count(),
   }
   console.log('Seed hoàn tất:', counts)
 }

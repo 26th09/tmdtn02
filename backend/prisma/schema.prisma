@@ -324,6 +324,8 @@ model DiscountCode {
   property      Property? @relation(fields: [propertyId], references: [id])
   tourId        Int? // tùy chọn: giới hạn cho 1 tour cụ thể
   tour          Tour?     @relation(fields: [tourId], references: [id])
+  serviceGroupId Int? // tùy chọn: chỉ áp dụng cho sản phẩm thuộc nhóm dịch vụ này (gồm nhóm con)
+  serviceGroup   ServiceGroup? @relation(fields: [serviceGroupId], references: [id])
   audience      String    @default("ALL") // ALL | CUSTOMER (chỉ thành viên đã đăng nhập)
   startAt       DateTime?
   endAt         DateTime?
@@ -604,6 +606,7 @@ model Tour {
   bookings    Booking[]
   discountCodes DiscountCode[]
   guides      TravelGuideTour[] // cẩm nang du lịch liên quan
+  serviceGroups ServiceGroupTour[] // nhóm dịch vụ chứa tour này
 
   @@index([status])
   @@index([regionId])
@@ -739,6 +742,7 @@ model Property {
   favorites Favorite[]
   bookings  Booking[]
   discountCodes DiscountCode[]
+  serviceGroups ServiceGroupProperty[] // nhóm dịch vụ chứa chỗ nghỉ này
 
   @@index([status])
   @@index([provinceId])
@@ -922,6 +926,7 @@ model TravelGuide {
   updatedAt    DateTime    @updatedAt
 
   relatedTours TravelGuideTour[]
+  serviceGroups ServiceGroupGuide[] // nhóm (dùng chung cây với tour/homestay)
 
   @@index([status])
   @@index([publishedAt])
@@ -980,4 +985,55 @@ model ContactReply {
   sentAt      DateTime       @default(now())
 
   @@index([messageId])
+}
+
+// ---- Nhóm dịch vụ (cây phân cấp theo địa lý/chủ đề): gom tour + homestay + bài viết ----
+// Dùng cho khuyến mãi, tìm kiếm/lọc và báo cáo doanh thu theo nhóm. Một dịch vụ thuộc nhiều nhóm (M2M).
+model ServiceGroup {
+  id          Int            @id @default(autoincrement())
+  name        String
+  slug        String         @unique
+  description String?        @db.Text
+  order       Int            @default(0)
+  parentId    Int?
+  parent      ServiceGroup?  @relation("ServiceGroupTree", fields: [parentId], references: [id])
+  children    ServiceGroup[] @relation("ServiceGroupTree")
+  createdAt   DateTime       @default(now())
+
+  tours      ServiceGroupTour[]
+  properties ServiceGroupProperty[]
+  guides     ServiceGroupGuide[]
+  discountCodes DiscountCode[] // mã giảm giá nhắm theo nhóm
+
+  @@index([parentId])
+}
+
+model ServiceGroupTour {
+  groupId Int
+  group   ServiceGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  tourId  Int
+  tour    Tour         @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, tourId])
+  @@index([tourId])
+}
+
+model ServiceGroupProperty {
+  groupId    Int
+  group      ServiceGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  propertyId Int
+  property   Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, propertyId])
+  @@index([propertyId])
+}
+
+model ServiceGroupGuide {
+  groupId Int
+  group   ServiceGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  guideId Int
+  guide   TravelGuide  @relation(fields: [guideId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, guideId])
+  @@index([guideId])
 }

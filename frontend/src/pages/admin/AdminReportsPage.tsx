@@ -119,6 +119,28 @@ export function AdminReportsPage() {
           </section>
 
           <section className="rounded-xl border border-slate-800 bg-slate-950 p-5">
+            <h2 className="mb-3 font-semibold text-slate-200">Doanh thu theo nhóm dịch vụ</h2>
+            {!data.revenueByGroup || data.revenueByGroup.length === 0 ? (
+              <p className="text-sm text-slate-500">Chưa có doanh thu theo nhóm trong kỳ (cần gắn tour/homestay vào nhóm).</p>
+            ) : (
+              <div className="space-y-2">
+                {data.revenueByGroup.map((g) => {
+                  const max = Math.max(...data.revenueByGroup!.map((x) => x.amount), 1)
+                  return (
+                    <div key={g.id} className="flex items-center gap-3 text-sm">
+                      <span className="w-44 shrink-0 truncate text-slate-300">{g.name}</span>
+                      <div className="h-3 flex-1 rounded bg-slate-900">
+                        <div className="h-3 rounded bg-emerald-600" style={{ width: `${Math.max(2, (g.amount / max) * 100)}%` }} />
+                      </div>
+                      <span className="w-28 shrink-0 text-right text-emerald-400">{fmt(g.amount)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-slate-800 bg-slate-950 p-5">
             <h2 className="mb-3 font-semibold text-slate-200">Tour bán chạy</h2>
             {data.topTours.length === 0 ? (
               <p className="text-sm text-slate-500">Không có đơn tour trong kỳ.</p>

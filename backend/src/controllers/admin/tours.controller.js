@@ -3,6 +3,7 @@ import { logAdminAction } from '../../lib/auditLog.js'
 import { publicUploadUrl } from '../../lib/uploads.js'
 import { parseUtcDate } from '../../lib/booking.js'
 import { missingForTourPublish } from '../../lib/publish.js'
+import { tourIdsInGroup } from '../../lib/serviceGroup.js'
 
 const ACTIVE_STATUSES = ['PENDING_DEPOSIT', 'DEPOSITED', 'CONFIRMED']
 
@@ -22,10 +23,14 @@ const str = (v) => (v != null && String(v).trim() !== '' ? String(v).trim() : nu
 // UC-17 – Danh sách tour (mọi trạng thái) cho khu vực quản trị.
 export async function listTours(req, res, next) {
   try {
-    const { status, search } = req.query
+    const { status, search, group } = req.query
     const where = {}
     if (['DRAFT', 'VISIBLE', 'HIDDEN'].includes(status)) where.status = status
     if (search) where.title = { contains: String(search) }
+    if (group) {
+      const ids = await tourIdsInGroup(Number(group))
+      where.id = { in: ids.length ? ids : [-1] }
+    }
 
     const items = await prisma.tour.findMany({
       where,

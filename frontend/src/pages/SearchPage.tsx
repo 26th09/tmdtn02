@@ -12,6 +12,7 @@ interface Filters {
   amenities: string[]
   minRating: string
   durations: number[]
+  group: string
   sort: string
 }
 
@@ -22,7 +23,19 @@ const emptyFilters: Filters = {
   amenities: [],
   minRating: '',
   durations: [],
+  group: '',
   sort: '',
+}
+
+// Làm phẳng cây nhóm thành danh sách có thụt đầu dòng cho <select>.
+function flattenGroups(nodes: { id: number; name: string; children?: unknown[] }[] | undefined, depth = 0): { id: number; label: string }[] {
+  if (!nodes) return []
+  const out: { id: number; label: string }[] = []
+  for (const n of nodes) {
+    out.push({ id: n.id, label: `${'  '.repeat(depth)}${n.name}` })
+    out.push(...flattenGroups((n.children as { id: number; name: string; children?: unknown[] }[]) || [], depth + 1))
+  }
+  return out
 }
 
 export function SearchPage() {
@@ -55,6 +68,7 @@ export function SearchPage() {
     if (filters.locations.length) qs.set('location', filters.locations.join(',')) // 1 khu vực/lần cho đơn giản
     if (filters.amenities.length) qs.set('amenities', filters.amenities.join(','))
     if (filters.durations.length) qs.set('duration', filters.durations.join(','))
+    if (filters.group) qs.set('group', filters.group)
     if (filters.sort) qs.set('sort', filters.sort)
 
     setStatus('loading')
@@ -150,6 +164,23 @@ export function SearchPage() {
                 </label>
               ))}
             </div>
+
+            {/* Nhóm dịch vụ (cây theo vùng/địa phương) */}
+            {facets && facets.groups && facets.groups.length > 0 && (
+              <div className="mb-5">
+                <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-forest-500">Nhóm dịch vụ</p>
+                <select
+                  value={filters.group}
+                  onChange={(e) => setFilters((f) => ({ ...f, group: e.target.value }))}
+                  className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm text-forest-900 focus:border-forest-400 focus:outline-none"
+                >
+                  <option value="">Tất cả nhóm</option>
+                  {flattenGroups(facets.groups).map((g) => (
+                    <option key={g.id} value={g.id}>{g.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Khu vực */}
             {facets && facets.locations.length > 0 && (

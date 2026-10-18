@@ -19,12 +19,18 @@ export interface Product {
   totalPrice?: number // BR-05: giá theo số đêm
 }
 
+export interface GroupNode {
+  id: number
+  name: string
+  children?: GroupNode[]
+}
 export interface SearchFacets {
   locations: string[]
   amenities: string[]
   durations: number[]
   priceMin: number
   priceMax: number
+  groups?: GroupNode[]
 }
 
 export interface SearchResult {

@@ -1,4 +1,14 @@
 import { prisma } from '../lib/prisma.js'
+import { allGroupsFlat, buildTree as buildGroupTree, tourIdsInGroup, propertyIdsInGroup } from '../lib/serviceGroup.js'
+
+// Cây nhóm dịch vụ (công khai) để trang khách hàng lọc theo nhóm.
+export async function getServiceGroups(req, res, next) {
+  try {
+    res.json({ tree: buildGroupTree(await allGroupsFlat()) })
+  } catch (err) {
+    next(err)
+  }
+}
 
 // Homestay nay ở bảng Property — chọn trường rồi ánh xạ về "thẻ" chung.
 const propertyCardSelect = {
@@ -250,6 +260,7 @@ export async function searchProducts(req, res, next) {
       amenities,
       minRating,
       duration,
+      group,
       sort,
     } = req.query
 
@@ -287,8 +298,18 @@ export async function searchProducts(req, res, next) {
       base.push(...tours.map((t) => ({ ...tourToCard(t), amenityList: [] })))
     }
 
+    // ----- Lọc theo nhóm dịch vụ (gồm nhóm con) -----
+    if (group) {
+      const gid = Number(group)
+      const [tIds, pIds] = await Promise.all([tourIdsInGroup(gid), propertyIdsInGroup(gid)])
+      const tSet = new Set(tIds)
+      const pSet = new Set(pIds)
+      base = base.filter((p) => (p.type === 'TOUR' ? tSet.has(p.id) : pSet.has(p.id)))
+    }
+
     // ----- Facets (tùy chọn bộ lọc dựa trên dữ liệu thực) -----
     const allAmenities = await prisma.amenity.findMany({ select: { name: true }, orderBy: { name: 'asc' } })
+    const groupTree = buildGroupTree(await allGroupsFlat())
     const facets = {
       locations: [...new Set(base.map((p) => p.location).filter(Boolean))].sort(),
       amenities: allAmenities.map((a) => a.name),
@@ -297,6 +318,7 @@ export async function searchProducts(req, res, next) {
       ),
       priceMin: base.length ? Math.min(...base.map((p) => p.price)) : 0,
       priceMax: base.length ? Math.max(...base.map((p) => p.price)) : 0,
+      groups: groupTree,
     }
 
     // ----- Áp dụng bộ lọc thứ cấp -----

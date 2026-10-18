@@ -15,6 +15,7 @@ import adminGuidesRoutes from './routes/admin/travelGuides.routes.js'
 import adminPromotionsRoutes from './routes/admin/promotions.routes.js'
 import adminAdminsRoutes from './routes/admin/admins.routes.js'
 import adminContactsRoutes from './routes/admin/contacts.routes.js'
+import adminServiceGroupsRoutes from './routes/admin/serviceGroups.routes.js'
 import contactRoutes from './routes/contact.routes.js'
 import authRoutes from './routes/auth.routes.js'
 import bookingsRoutes from './routes/bookings.routes.js'
@@ -69,6 +70,7 @@ app.use('/api/admin/guides', adminGuidesRoutes)
 app.use('/api/admin/promotions', adminPromotionsRoutes)
 app.use('/api/admin/admins', adminAdminsRoutes)
 app.use('/api/admin/contacts', adminContactsRoutes)
+app.use('/api/admin/service-groups', adminServiceGroupsRoutes)
 app.use('/api/catalog', catalogRoutes)
 app.use('/api/bookings', bookingsRoutes)
 app.use('/api/favorites', favoritesRoutes)
