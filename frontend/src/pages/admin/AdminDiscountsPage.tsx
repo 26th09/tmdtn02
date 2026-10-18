@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AdminApiError, adminApi, type AdminDiscount } from '../../lib/adminApi'
+import { AdminApiError, adminApi, type AdminDiscount, type ServiceGroup } from '../../lib/adminApi'
 
 const field = 'rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none'
 
@@ -9,6 +9,7 @@ const emptyForm = {
   value: '',
   minOrderValue: '0',
   scope: 'ALL' as 'ALL' | 'HOMESTAY' | 'TOUR',
+  serviceGroupId: '' as string,
   audience: 'ALL' as 'ALL' | 'CUSTOMER',
   startAt: '',
   endAt: '',
@@ -30,6 +31,11 @@ export function AdminDiscountsPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
+  const [groups, setGroups] = useState<ServiceGroup[]>([])
+
+  useEffect(() => {
+    adminApi.listServiceGroups().then((r) => setGroups(r.flat)).catch(() => setGroups([]))
+  }, [])
 
   const load = useCallback(() => {
     setLoading(true)
@@ -59,6 +65,7 @@ export function AdminDiscountsPage() {
       value: String(d.value),
       minOrderValue: String(d.minOrderValue),
       scope: d.scope,
+      serviceGroupId: d.serviceGroupId != null ? String(d.serviceGroupId) : '',
       audience: d.audience,
       startAt: toDateInput(d.startAt),
       endAt: toDateInput(d.endAt),
@@ -78,6 +85,7 @@ export function AdminDiscountsPage() {
       value: Number(form.value),
       minOrderValue: Number(form.minOrderValue || 0),
       scope: form.scope,
+      serviceGroupId: form.serviceGroupId === '' ? null : Number(form.serviceGroupId),
       audience: form.audience,
       startAt: form.startAt || null,
       endAt: form.endAt || null,
@@ -155,6 +163,13 @@ export function AdminDiscountsPage() {
                 <option value="ALL">Tất cả</option>
                 <option value="HOMESTAY">Chỉ Homestay</option>
                 <option value="TOUR">Chỉ Tour</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-slate-400">
+              Nhóm dịch vụ (tùy chọn)
+              <select className={field} value={form.serviceGroupId} onChange={(e) => setForm({ ...form, serviceGroupId: e.target.value })}>
+                <option value="">— Không giới hạn nhóm —</option>
+                {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
             </label>
             <label className="flex flex-col gap-1 text-xs text-slate-400">

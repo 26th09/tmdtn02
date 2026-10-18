@@ -11,6 +11,7 @@ import { AdminActivatePage } from './pages/admin/AdminActivatePage'
 import { AdminForgotPasswordPage, AdminResetPasswordPage } from './pages/admin/AdminPasswordResetPages'
 import { AdminAccountsPage } from './pages/admin/AdminAccountsPage'
 import { AdminContactsPage } from './pages/admin/AdminContactsPage'
+import { AdminServiceGroupsPage } from './pages/admin/AdminServiceGroupsPage'
 import { ContactPage } from './pages/ContactPage'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
 import { AdminHomestaysPage } from './pages/admin/AdminHomestaysPage'
@@ -104,6 +105,8 @@ function App() {
           <Route path="admins" element={<AdminAccountsPage />} />
           {/* Chăm sóc khách hàng / liên hệ */}
           <Route path="contacts" element={<AdminContactsPage />} />
+          {/* Nhóm dịch vụ (cây phân cấp) */}
+          <Route path="service-groups" element={<AdminServiceGroupsPage />} />
           {/* UC-23 – Cấu hình hệ thống & nhật ký */}
           <Route path="settings" element={<AdminConfigPage />} />
         </Route>

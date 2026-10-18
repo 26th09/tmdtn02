@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AdminApiError, adminApi, type AdminProduct } from '../../lib/adminApi'
+import { AdminApiError, adminApi, type AdminProduct, type ServiceGroup } from '../../lib/adminApi'
 
 const STATUS_LABEL: Record<string, string> = { DRAFT: 'Nháp (chờ công bố)', VISIBLE: 'Đang hiển thị', HIDDEN: 'Đã ẩn' }
 const STATUS_COLOR: Record<string, string> = { DRAFT: 'bg-amber-900 text-amber-300', VISIBLE: 'bg-emerald-900 text-emerald-300', HIDDEN: 'bg-slate-800 text-slate-400' }
@@ -10,18 +10,24 @@ export function AdminHomestaysPage() {
   const [items, setItems] = useState<AdminProduct[]>([])
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
+  const [group, setGroup] = useState('')
+  const [groups, setGroups] = useState<ServiceGroup[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
 
+  useEffect(() => {
+    adminApi.listServiceGroups().then((r) => setGroups(r.flat)).catch(() => setGroups([]))
+  }, [])
+
   const load = useCallback(() => {
     setLoading(true)
     adminApi
-      .listHomestays({ status: status || undefined, search: search || undefined })
+      .listHomestays({ status: status || undefined, search: search || undefined, group: group ? Number(group) : undefined })
       .then((r) => setItems(r.items))
       .catch(() => setError('Không tải được danh sách'))
       .finally(() => setLoading(false))
-  }, [status, search])
+  }, [status, search, group])
 
   useEffect(() => {
     load()
@@ -55,6 +61,10 @@ export function AdminHomestaysPage() {
           <option value="DRAFT">Nháp</option>
           <option value="VISIBLE">Đang hiển thị</option>
           <option value="HIDDEN">Đã ẩn</option>
+        </select>
+        <select value={group} onChange={(e) => setGroup(e.target.value)} className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100">
+          <option value="">Tất cả nhóm dịch vụ</option>
+          {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
         </select>
       </div>
 

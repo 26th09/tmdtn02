@@ -1,4 +1,5 @@
 import { prisma } from './prisma.js'
+import { productInGroup } from './serviceGroup.js'
 
 // UC-12 – Kiểm tra và tính chiết khấu cho một mã giảm giá.
 // BR-45: còn hiệu lực (thời gian, lượt dùng) + điều kiện đơn (giá trị tối thiểu, phạm vi, đối tượng).
@@ -38,6 +39,13 @@ export async function validateDiscount({ code, type, productId, propertyId, tour
   }
   if (row.propertyId && row.propertyId !== propertyId) {
     return { ok: false, message: 'Mã không áp dụng cho chỗ nghỉ này', code: 'SCOPE' }
+  }
+  // Mã nhắm theo nhóm dịch vụ: sản phẩm phải thuộc nhóm đó (gồm nhóm con).
+  if (row.serviceGroupId) {
+    const inGroup = await productInGroup({ groupId: row.serviceGroupId, tourId, propertyId })
+    if (!inGroup) {
+      return { ok: false, message: 'Mã chỉ áp dụng cho nhóm dịch vụ nhất định, không gồm sản phẩm này', code: 'SCOPE' }
+    }
   }
 
   // 3a: đối tượng áp dụng (chỉ thành viên đã đăng nhập).

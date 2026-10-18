@@ -19,6 +19,7 @@ const NAV_GROUPS: { title: string; items: { to: string; label: string; icon: str
     items: [
       { to: '/admin/homestays', label: 'Homestay', icon: '⌂' },
       { to: '/admin/tours', label: 'Tour', icon: '✈' },
+      { to: '/admin/service-groups', label: 'Nhóm dịch vụ', icon: '🗂' },
       { to: '/admin/guides', label: 'Cẩm nang du lịch', icon: '❏' },
       { to: '/admin/orders', label: 'Đơn hàng', icon: '🧾' },
       { to: '/admin/discounts', label: 'Mã khuyến mại', icon: '％' },
@@ -42,6 +43,7 @@ const NAV_GROUPS: { title: string; items: { to: string; label: string; icon: str
 const TITLES: { prefix: string; label: string }[] = [
   { prefix: '/admin/homestays', label: 'Quản lý Homestay' },
   { prefix: '/admin/tours', label: 'Quản lý Tour' },
+  { prefix: '/admin/service-groups', label: 'Nhóm dịch vụ' },
   { prefix: '/admin/guides', label: 'Cẩm nang du lịch' },
   { prefix: '/admin/orders', label: 'Quản lý đơn hàng' },
   { prefix: '/admin/discounts', label: 'Mã khuyến mại' },

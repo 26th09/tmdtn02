@@ -3,6 +3,7 @@ import { logAdminAction } from '../../lib/auditLog.js'
 import { publicUploadUrl } from '../../lib/uploads.js'
 import { nightsBetween } from '../../lib/booking.js'
 import { missingForPropertyPublish } from '../../lib/publish.js'
+import { propertyIdsInGroup } from '../../lib/serviceGroup.js'
 
 const ACTIVE_STATUSES = ['PENDING_DEPOSIT', 'DEPOSITED', 'CONFIRMED']
 
@@ -21,10 +22,14 @@ const str = (v) => (v != null && String(v).trim() !== '' ? String(v).trim() : nu
 // UC-16 – Danh sách chỗ nghỉ (mọi trạng thái) cho khu vực quản trị.
 export async function listHomestays(req, res, next) {
   try {
-    const { status, search } = req.query
+    const { status, search, group } = req.query
     const where = {}
     if (['DRAFT', 'VISIBLE', 'HIDDEN'].includes(status)) where.status = status
     if (search) where.name = { contains: String(search) }
+    if (group) {
+      const ids = await propertyIdsInGroup(Number(group))
+      where.id = { in: ids.length ? ids : [-1] } // không có -> rỗng
+    }
     const items = await prisma.property.findMany({
       where,
       select: {

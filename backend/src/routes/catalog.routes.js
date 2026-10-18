@@ -3,6 +3,7 @@ import {
   getCategories,
   getHome,
   getProducts,
+  getServiceGroups,
   searchProducts,
 } from '../controllers/catalog.controller.js'
 import { checkTourAvailability, getTourDetail, listTours } from '../controllers/publicTours.controller.js'
@@ -13,6 +14,7 @@ const router = Router()
 // UC-01 – không yêu cầu đăng nhập (BR-03).
 router.get('/home', getHome)
 router.get('/categories', getCategories)
+router.get('/service-groups', getServiceGroups)
 router.get('/products', getProducts)
 // UC-02 – Tìm kiếm & lọc.
 router.get('/search', searchProducts)

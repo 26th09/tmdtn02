@@ -201,10 +201,11 @@ export const adminApi = {
   setAdminActive: (id: number, active: boolean) => patchReq<{ ok: boolean }>(`/api/admin/admins/${id}/active`, { active }),
 
   // UC-16 – Quản lý homestay
-  listHomestays: (params: { status?: string; search?: string } = {}) => {
+  listHomestays: (params: { status?: string; search?: string; group?: number } = {}) => {
     const qs = new URLSearchParams()
     if (params.status) qs.set('status', params.status)
     if (params.search) qs.set('search', params.search)
+    if (params.group) qs.set('group', String(params.group))
     return get<{ items: AdminProduct[] }>(`/api/admin/homestays?${qs.toString()}`)
   },
   getHomestay: (id: number) => get<{ property: AdminProductDetail }>(`/api/admin/homestays/${id}`),
@@ -251,10 +252,11 @@ export const adminApi = {
     putReq<{ ok: boolean; days: number }>(`/api/admin/homestays/${propertyId}/room-types/${rtId}/inventory`, data),
 
   // UC-17 – Quản lý tour (bảng riêng)
-  listTours: (params: { status?: string; search?: string } = {}) => {
+  listTours: (params: { status?: string; search?: string; group?: number } = {}) => {
     const qs = new URLSearchParams()
     if (params.status) qs.set('status', params.status)
     if (params.search) qs.set('search', params.search)
+    if (params.group) qs.set('group', String(params.group))
     return get<{ items: AdminTour[] }>(`/api/admin/tours?${qs.toString()}`)
   },
   getTour: (id: number) => get<{ tour: AdminTourDetail }>(`/api/admin/tours/${id}`),
@@ -398,6 +400,19 @@ export const adminApi = {
   topRatedTours: (limit = 10) =>
     get<{ items: TopRatedTour[] }>(`/api/admin/reviews/top-tours?limit=${limit}`),
 
+  // Nhóm dịch vụ (cây phân cấp)
+  listServiceGroups: () => get<{ tree: ServiceGroup[]; flat: ServiceGroup[] }>('/api/admin/service-groups'),
+  createServiceGroup: (data: { name: string; parentId?: number | null; description?: string }) =>
+    post<{ group: ServiceGroup }>('/api/admin/service-groups', data),
+  updateServiceGroup: (id: number, data: Record<string, unknown>) =>
+    patchReq<{ group: ServiceGroup }>(`/api/admin/service-groups/${id}`, data),
+  deleteServiceGroup: (id: number) => del<{ ok: boolean }>(`/api/admin/service-groups/${id}`),
+  getServiceGroupMembers: (id: number) => get<ServiceGroupMembers>(`/api/admin/service-groups/${id}/members`),
+  addServiceGroupItem: (id: number, kind: 'tour' | 'property' | 'guide', itemId: number) =>
+    post<{ ok: boolean }>(`/api/admin/service-groups/${id}/items`, { kind, itemId }),
+  removeServiceGroupItem: (id: number, kind: 'tour' | 'property' | 'guide', itemId: number) =>
+    del<{ ok: boolean }>(`/api/admin/service-groups/${id}/items/${kind}/${itemId}`),
+
   // Liên hệ & chăm sóc khách hàng
   listContacts: (params: { status?: string; type?: string } = {}) => {
     const qs = new URLSearchParams()
@@ -526,6 +541,7 @@ export interface AdminReports {
   ordersByStatus: { status: string; count: number }[]
   topTours: { productId: number; name?: string; slug?: string; bookingsCount: number; seats: number }[]
   homestayOccupancy: { productId: number; name?: string; slug?: string; totalRoomNights: number; bookedRoomNights: number; rate: number }[]
+  revenueByGroup?: { id: number; name: string; amount: number }[]
 }
 
 export interface ContactAttachment {
@@ -564,6 +580,22 @@ export interface ContactCounts {
   replied: number
 }
 
+export interface ServiceGroup {
+  id: number
+  name: string
+  slug: string
+  description: string | null
+  order: number
+  parentId: number | null
+  children?: ServiceGroup[]
+  _count?: { tours: number; properties: number; guides: number }
+}
+export interface ServiceGroupMembers {
+  group: ServiceGroup
+  members: { tours: { id: number; title: string }[]; properties: { id: number; name: string }[]; guides: { id: number; title: string }[] }
+  options: { tours: { id: number; title: string }[]; properties: { id: number; name: string }[]; guides: { id: number; title: string }[] }
+}
+
 export interface TopRatedTour {
   id: number
   title: string
@@ -598,6 +630,8 @@ export interface AdminDiscount {
   scope: 'ALL' | 'HOMESTAY' | 'TOUR'
   productId: number | null
   product?: { name: string; slug: string } | null
+  serviceGroupId: number | null
+  serviceGroup?: { id: number; name: string } | null
   audience: 'ALL' | 'CUSTOMER'
   startAt: string | null
   endAt: string | null
