@@ -35,24 +35,32 @@ export async function getPaymentStatus(req, res, next) {
 }
 
 // Ghi nhận đặt cọc thành công cho một đơn (dùng chung COD & VNPAY). BR-41.
-async function markDeposited(booking, method, transactionId) {
+// moneyReceived=false với COD (thu tay): giữ chỗ nhưng TIỀN CHƯA NHẬN (paidAmount giữ nguyên,
+// Payment ở trạng thái PENDING) — admin xác nhận đã thu sau. VNPAY thì tiền vào ngay.
+async function markDeposited(booking, method, transactionId, moneyReceived = true) {
   await prisma.$transaction([
     prisma.booking.update({
       where: { id: booking.id },
-      data: { status: 'DEPOSITED', paymentMethod: method, transactionId, depositPaidAt: new Date() },
+      data: {
+        status: 'DEPOSITED',
+        paymentMethod: method,
+        transactionId,
+        depositPaidAt: moneyReceived ? new Date() : null,
+        ...(moneyReceived ? { paidAmount: { increment: booking.depositAmount } } : {}),
+      },
     }),
     prisma.payment.create({
       data: {
         bookingId: booking.id,
         method,
         amount: booking.depositAmount,
-        status: 'SUCCESS',
+        status: moneyReceived ? 'SUCCESS' : 'PENDING',
         transactionId,
       },
     }),
   ])
-  // BR-47: chỉ trừ lượt dùng mã giảm giá khi đơn đã thanh toán cọc thành công.
-  await consumeDiscountIfAny(booking)
+  // BR-47: chỉ trừ lượt mã giảm giá khi tiền thực nhận (VNPAY ngay; COD khi admin xác nhận).
+  if (moneyReceived) await consumeDiscountIfAny(booking)
   sendBookingEmail(booking.guestEmail, {
     code: booking.code,
     pin: null,
@@ -83,7 +91,8 @@ export async function createPayment(req, res, next) {
     }
 
     if (method === 'COD') {
-      await markDeposited(booking, 'COD', null)
+      // Thu tay: giữ chỗ nhưng tiền CHƯA nhận — admin xác nhận khi thực thu.
+      await markDeposited(booking, 'COD', null, false)
       return res.json({ status: 'success', method: 'COD', booking: { code: booking.code, status: 'DEPOSITED' } })
     }
 

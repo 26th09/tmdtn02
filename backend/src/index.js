@@ -5,6 +5,7 @@ import { isGoogleConfigured } from './lib/google.js'
 import { isVnpayConfigured } from './lib/vnpay.js'
 import { sweepCompletedBookings } from './lib/booking.js'
 import { sweepAdminPasswordExpiry } from './lib/adminExpiry.js'
+import { sweepPaymentDeadlines } from './lib/paymentSweep.js'
 
 const PORT = process.env.PORT || 4000
 
@@ -25,6 +26,14 @@ function startAdminPasswordSweep() {
   setInterval(run, PWD_SWEEP_HOURS * 3600_000)
 }
 
+// Tự hủy đơn quá hạn thanh toán (chính sách bắt buộc) + trả lại tồn kho.
+const PAY_SWEEP_MINUTES = Number(process.env.PAYMENT_SWEEP_MINUTES || 30)
+function startPaymentSweep() {
+  const run = () => sweepPaymentDeadlines().catch((e) => console.error('[Payment sweep] lỗi:', e))
+  setTimeout(run, 15_000)
+  setInterval(run, PAY_SWEEP_MINUTES * 60_000)
+}
+
 app.listen(PORT, () => {
   console.log(`Backend đang chạy tại http://localhost:${PORT}`)
   console.log(`  • Email: ${isEmailConfigured() ? 'SMTP (gửi thật)' : 'DEV (log link ra console)'}`)
@@ -32,6 +41,8 @@ app.listen(PORT, () => {
   console.log(`  • VNPAY: ${isVnpayConfigured() ? 'BẬT' : 'TẮT (dùng COD; cấu hình VNP_TMN_CODE để bật)'}`)
   console.log(`  • Quét đánh giá (UC-15): mỗi ${SWEEP_MINUTES} phút`)
   console.log(`  • Nhắc hạn mật khẩu admin: mỗi ${PWD_SWEEP_HOURS} giờ`)
+  console.log(`  • Tự hủy đơn quá hạn thanh toán: mỗi ${PAY_SWEEP_MINUTES} phút`)
   startReviewSweep()
   startAdminPasswordSweep()
+  startPaymentSweep()
 })

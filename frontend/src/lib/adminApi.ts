@@ -352,6 +352,8 @@ export const adminApi = {
     ),
   updateOrderStatus: (code: string, status: string) =>
     patchReq<{ order: AdminOrderDetail }>(`/api/admin/orders/${code}/status`, { status }),
+  setOrderPayment: (code: string, body: { mark?: 'FULL' | 'DEPOSIT' | 'NONE'; paidAmount?: number }) =>
+    patchReq<{ ok: boolean; paidAmount: number; paymentState: string; outstanding: number }>(`/api/admin/orders/${code}/payment`, body),
   processRefund: (code: string, refundId: number, data: { amount?: number; referenceCode?: string }) =>
     post<{ refund: AdminRefundRequest }>(`/api/admin/orders/${code}/refunds/${refundId}/process`, data),
 
@@ -515,6 +517,9 @@ export interface AdminSystemConfig {
   cancelTier1Ratio: number
   cancelTier2Days: number
   cancelTier2Ratio: number
+  vatPercent: number
+  fullPaymentHoursBeforeStart: number
+  codDueDays: number
   sellerName: string | null
   sellerAddress: string | null
   sellerPhone: string | null
@@ -546,7 +551,7 @@ export interface AdminLoginAttemptEntry {
 
 export interface AdminReports {
   range: { from: string; to: string }
-  revenue: { gross: number; refunded: number; net: number; byDay: { date: string; amount: number }[] }
+  revenue: { gross: number; refunded: number; net: number; vatPercent?: number; tax?: number; afterTax?: number; byDay: { date: string; amount: number }[] }
   ordersByStatus: { status: string; count: number }[]
   topTours: { productId: number; name?: string; slug?: string; bookingsCount: number; seats: number }[]
   homestayOccupancy: { productId: number; name?: string; slug?: string; totalRoomNights: number; bookedRoomNights: number; rate: number }[]
@@ -689,7 +694,15 @@ export interface AdminOrder {
   totalPrice: number
   depositAmount: number
   remainingAmount: number
+  discountAmount?: number
   paymentMethod: string | null
+  paidAmount: number
+  payable: number
+  paymentState: 'UNPAID' | 'PARTIAL' | 'PAID'
+  outstanding: number
+  contactComplete: boolean
+  refundRatio: number | null
+  refundAmount: number | null
   createdAt: string
 }
 
@@ -702,6 +715,8 @@ export interface AdminOrderDetail extends AdminOrder {
   depositPaidAt: string | null
   cancelledAt: string | null
   allowedTransitions: string[]
+  fullPaymentDeadline: string | null
+  codDeadline: string | null
 }
 
 export interface AdminPayment {

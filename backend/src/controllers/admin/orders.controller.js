@@ -2,6 +2,8 @@ import { prisma } from '../../lib/prisma.js'
 import { logAdminAction } from '../../lib/auditLog.js'
 import { nightsBetween } from '../../lib/booking.js'
 import { sendOrderStatusEmail, sendRefundProcessedEmail } from '../../lib/mailer.js'
+import { paymentState, outstanding, payableTotal, fullPaymentDeadline, codDeadline } from '../../lib/payment.js'
+import { consumeDiscountIfAny } from '../../lib/discount.js'
 
 // BR-85: vòng đời đơn — mọi chuyển trạng thái không có trong danh sách đều bị từ chối.
 const TRANSITIONS = {
@@ -29,7 +31,16 @@ function summary(b) {
     totalPrice: b.totalPrice,
     depositAmount: b.depositAmount,
     remainingAmount: b.remainingAmount,
+    discountAmount: b.discountAmount,
     paymentMethod: b.paymentMethod,
+    // Tài chính: tiền đã nhận + trạng thái thanh toán + còn thiếu + đủ thông tin liên hệ.
+    paidAmount: b.paidAmount,
+    payable: payableTotal(b),
+    paymentState: paymentState(b), // UNPAID | PARTIAL | PAID
+    outstanding: outstanding(b),
+    contactComplete: Boolean(b.guestName && b.guestEmail && b.guestPhone),
+    refundRatio: b.refundRequests?.[0]?.ratio ?? null,
+    refundAmount: b.refundRequests?.[0]?.amount ?? null,
     createdAt: b.createdAt,
   }
 }
@@ -65,11 +76,57 @@ export async function listOrders(req, res, next) {
 
     const bookings = await prisma.booking.findMany({
       where,
-      include: { property: { select: { name: true, slug: true } }, tour: { select: { title: true, slug: true } } },
+      include: {
+        property: { select: { name: true, slug: true } },
+        tour: { select: { title: true, slug: true } },
+        refundRequests: { orderBy: { createdAt: 'desc' }, take: 1, select: { ratio: true, amount: true } },
+      },
       orderBy: { createdAt: 'desc' },
-      take: 300,
+      take: 500,
     })
     res.json({ items: bookings.map(summary) })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// Ghi nhận/điều chỉnh số tiền đã THU (thu tay / thanh toán 1 phần). mark: FULL|DEPOSIT|NONE hoặc paidAmount cụ thể.
+export async function setOrderPayment(req, res, next) {
+  try {
+    const code = req.params.code
+    const booking = await prisma.booking.findUnique({ where: { code } })
+    if (!booking) return res.status(404).json({ message: 'Không tìm thấy đơn' })
+    if (booking.status === 'CANCELLED') return res.status(400).json({ message: 'Đơn đã hủy, không ghi nhận thanh toán' })
+
+    const payable = payableTotal(booking)
+    let target
+    if (req.body.mark === 'FULL') target = payable
+    else if (req.body.mark === 'DEPOSIT') target = booking.depositAmount
+    else if (req.body.mark === 'NONE') target = 0
+    else target = Number(req.body.paidAmount)
+    if (target == null || Number.isNaN(target)) return res.status(400).json({ message: 'Số tiền không hợp lệ' })
+    target = Math.max(0, Math.min(Math.round(target), payable))
+
+    const delta = target - (booking.paidAmount || 0)
+    const ops = [
+      prisma.booking.update({
+        where: { id: booking.id },
+        data: { paidAmount: target, ...(target > 0 && !booking.depositPaidAt ? { depositPaidAt: new Date() } : {}) },
+      }),
+    ]
+    if (delta !== 0) {
+      ops.push(
+        prisma.payment.create({
+          data: { bookingId: booking.id, method: booking.paymentMethod || 'CASH', amount: delta, status: 'SUCCESS' },
+        }),
+      )
+    }
+    await prisma.$transaction(ops)
+    if (target > 0) await consumeDiscountIfAny(booking) // trừ lượt mã giảm giá khi thực nhận tiền
+    await logAdminAction(req.admin.sub, 'order.payment', { entityType: 'Booking', entityId: booking.id, detail: { paidAmount: target } })
+
+    const updatedB = { ...booking, paidAmount: target }
+    res.json({ ok: true, paidAmount: target, paymentState: paymentState(updatedB), outstanding: outstanding(updatedB) })
   } catch (err) {
     next(err)
   }
@@ -101,6 +158,8 @@ export async function getOrder(req, res, next) {
         depositPaidAt: booking.depositPaidAt,
         cancelledAt: booking.cancelledAt,
         allowedTransitions: TRANSITIONS[booking.status] || [],
+        fullPaymentDeadline: await fullPaymentDeadline(booking),
+        codDeadline: booking.paymentMethod === 'COD' ? await codDeadline(booking) : null,
       },
       payments: booking.payments,
       refundRequests: booking.refundRequests,

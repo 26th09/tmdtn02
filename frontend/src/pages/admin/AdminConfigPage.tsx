@@ -63,6 +63,9 @@ function ConfigTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
           cancelTier1Ratio: String(r.config.cancelTier1Ratio),
           cancelTier2Days: String(r.config.cancelTier2Days),
           cancelTier2Ratio: String(r.config.cancelTier2Ratio),
+          vatPercent: String(r.config.vatPercent ?? 8),
+          fullPaymentHoursBeforeStart: String(r.config.fullPaymentHoursBeforeStart ?? 1),
+          codDueDays: String(r.config.codDueDays ?? 7),
           sellerName: r.config.sellerName || '',
           sellerAddress: r.config.sellerAddress || '',
           sellerPhone: r.config.sellerPhone || '',
@@ -91,6 +94,9 @@ function ConfigTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         cancelTier1Ratio: Number(form.cancelTier1Ratio),
         cancelTier2Days: Number(form.cancelTier2Days),
         cancelTier2Ratio: Number(form.cancelTier2Ratio),
+        vatPercent: Number(form.vatPercent),
+        fullPaymentHoursBeforeStart: Number(form.fullPaymentHoursBeforeStart),
+        codDueDays: Number(form.codDueDays),
         sellerName: form.sellerName || undefined,
         sellerAddress: form.sellerAddress || undefined,
         sellerPhone: form.sellerPhone || undefined,
@@ -161,6 +167,27 @@ function ConfigTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         </div>
         <p className="mt-3 text-xs text-slate-500">
           Dưới mốc mức 2: không hoàn tiền. Thay đổi chỉ áp dụng cho các đơn/giao dịch phát sinh sau khi lưu (BR-115), không hồi tố các đơn đã tạo.
+        </p>
+      </section>
+
+      <section className="rounded-xl border border-slate-800 bg-slate-950 p-5">
+        <h2 className="mb-3 font-semibold text-slate-200">Tài chính</h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <label className="flex flex-col gap-1 text-xs text-slate-400">
+            Thuế GTGT / VAT (%)
+            <input className={field} type="number" min={0} max={100} disabled={!isSuperAdmin} value={form.vatPercent || ''} onChange={(e) => setForm({ ...form, vatPercent: e.target.value })} />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-400">
+            Hạn trả đủ trước giờ đi/checkin (giờ)
+            <input className={field} type="number" min={0} disabled={!isSuperAdmin} value={form.fullPaymentHoursBeforeStart || ''} onChange={(e) => setForm({ ...form, fullPaymentHoursBeforeStart: e.target.value })} />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-400">
+            Hạn thu tay (ngày)
+            <input className={field} type="number" min={1} disabled={!isSuperAdmin} value={form.codDueDays || ''} onChange={(e) => setForm({ ...form, codDueDays: e.target.value })} />
+          </label>
+        </div>
+        <p className="mt-3 text-xs text-slate-500">
+          VAT dùng để tách doanh thu "sau thuế" và "thuế" trong báo cáo. Đơn chưa trả đủ trước giờ đi/checkin, hoặc thu tay quá hạn, sẽ bị tự hủy và hoàn tồn kho (chính sách bắt buộc). Mức hoàn tiền áp theo các mốc hủy ở trên.
         </p>
       </section>
 
