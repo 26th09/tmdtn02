@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { AdminApiError, adminApi, type AdminGuideDetail } from '../../lib/adminApi'
+import { AdminApiError, adminApi, type AdminGuideDetail, type ServiceGroup } from '../../lib/adminApi'
 
 const field = 'w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none'
 const label = 'mb-1 block text-sm text-slate-300'
@@ -26,6 +26,8 @@ export function AdminGuideFormPage() {
   const [coverImage, setCoverImage] = useState<string | null>(null)
   const [tourIds, setTourIds] = useState<number[]>([])
   const [tours, setTours] = useState<{ id: number; title: string; slug: string }[]>([])
+  const [groupIds, setGroupIds] = useState<number[]>([])
+  const [groups, setGroups] = useState<ServiceGroup[]>([])
   const [, setGuideId] = useState<number | null>(null)
 
   const [error, setError] = useState<string | null>(null)
@@ -36,7 +38,7 @@ export function AdminGuideFormPage() {
   const set = (k: keyof typeof empty, v: string) => setF((p) => ({ ...p, [k]: v }))
 
   useEffect(() => {
-    adminApi.getGuideMeta().then((d) => setTours(d.tours)).catch(() => {})
+    adminApi.getGuideMeta().then((d) => { setTours(d.tours); setGroups(d.groups.flat) }).catch(() => {})
   }, [])
   useEffect(() => {
     if (!id) return
@@ -51,6 +53,7 @@ export function AdminGuideFormPage() {
     })
     setCoverImage(g.coverImage)
     setTourIds((g.relatedTours ?? []).map((r) => r.tourId))
+    setGroupIds(g.groupIds ?? [])
     setGuideId(g.id)
   }
 
@@ -67,6 +70,7 @@ export function AdminGuideFormPage() {
       longitude: f.longitude || undefined,
       publishedAt: f.publishedAt || undefined,
       tourIds,
+      groupIds,
     }
   }
 
@@ -93,6 +97,7 @@ export function AdminGuideFormPage() {
   }
 
   const toggleTour = (tid: number) => setTourIds((prev) => (prev.includes(tid) ? prev.filter((x) => x !== tid) : [...prev, tid]))
+  const toggleGroup = (gid: number) => setGroupIds((prev) => (prev.includes(gid) ? prev.filter((x) => x !== gid) : [...prev, gid]))
 
   if (!loaded) return <p className="text-slate-500">Đang tải...</p>
 
@@ -149,6 +154,23 @@ export function AdminGuideFormPage() {
                 <label key={t.id} className={`cursor-pointer rounded-lg border px-3 py-1 text-sm ${tourIds.includes(t.id) ? 'border-emerald-500 bg-emerald-950/40 text-emerald-300' : 'border-slate-700 text-slate-400'}`}>
                   <input type="checkbox" className="mr-1 hidden" checked={tourIds.includes(t.id)} onChange={() => toggleTour(t.id)} />
                   {tourIds.includes(t.id) ? '✓ ' : ''}{t.title}
+                </label>
+              ))}
+            </div>
+          )}
+        </fieldset>
+
+        <fieldset className="rounded-xl border border-slate-800 bg-slate-950 p-5">
+          <legend className="px-1 text-sm font-medium text-slate-300">Nhóm dịch vụ (theo vùng/khu vực)</legend>
+          <p className="mb-2 text-xs text-slate-500">Gán bài viết vào nhóm để lọc và quản lý theo khu vực (vd: Tây Bắc → Sapa).</p>
+          {groups.length === 0 ? (
+            <p className="text-sm text-slate-500">Chưa có nhóm nào. Tạo ở mục “Nhóm dịch vụ”.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {groups.map((g) => (
+                <label key={g.id} className={`cursor-pointer rounded-lg border px-3 py-1 text-sm ${groupIds.includes(g.id) ? 'border-emerald-500 bg-emerald-950/40 text-emerald-300' : 'border-slate-700 text-slate-400'}`}>
+                  <input type="checkbox" className="mr-1 hidden" checked={groupIds.includes(g.id)} onChange={() => toggleGroup(g.id)} />
+                  {groupIds.includes(g.id) ? '✓ ' : ''}{g.name}
                 </label>
               ))}
             </div>

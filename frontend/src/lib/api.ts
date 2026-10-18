@@ -64,6 +64,13 @@ export interface Promotion {
   title: string
   description: string | null
   image: string | null
+  startAt?: string | null
+  endAt?: string | null
+  discountCode?: string | null
+  discountPercent?: number | null
+  ctaLink?: string | null
+  serviceGroup?: { id: number; name: string; slug: string } | null
+  products?: Product[]
 }
 
 export interface HomeData {

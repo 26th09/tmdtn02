@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AdminApiError, adminApi, type AdminPromotion } from '../../lib/adminApi'
+import { AdminApiError, adminApi, type AdminPromotion, type ServiceGroup } from '../../lib/adminApi'
 
 const field =
   'w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none'
 const label = 'mb-1 block text-sm font-medium text-slate-300'
 
-const emptyForm = { title: '', description: '', image: '', active: true }
+const emptyForm = {
+  title: '', description: '', image: '', active: true,
+  startAt: '', endAt: '', discountCode: '', discountPercent: '', serviceGroupId: '', ctaLink: '',
+}
+// ISO -> giá trị cho <input type="datetime-local"> (giờ địa phương).
+function toLocalInput(iso: string | null) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 // Quản lý chương trình khuyến mại (banner hiển thị ở trang chủ).
 export function AdminPromotionsPage() {
@@ -17,7 +27,12 @@ export function AdminPromotionsPage() {
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [groups, setGroups] = useState<ServiceGroup[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    adminApi.listServiceGroups().then((r) => setGroups(r.flat)).catch(() => setGroups([]))
+  }, [])
 
   const load = useCallback(() => {
     setLoading(true)
@@ -41,7 +56,12 @@ export function AdminPromotionsPage() {
 
   function openEdit(p: AdminPromotion) {
     setEditingId(p.id)
-    setForm({ title: p.title, description: p.description ?? '', image: p.image ?? '', active: p.active })
+    setForm({
+      title: p.title, description: p.description ?? '', image: p.image ?? '', active: p.active,
+      startAt: toLocalInput(p.startAt), endAt: toLocalInput(p.endAt),
+      discountCode: p.discountCode ?? '', discountPercent: p.discountPercent != null ? String(p.discountPercent) : '',
+      serviceGroupId: p.serviceGroupId != null ? String(p.serviceGroupId) : '', ctaLink: p.ctaLink ?? '',
+    })
     setError(null)
     setShowForm(true)
   }
@@ -76,6 +96,12 @@ export function AdminPromotionsPage() {
         description: form.description.trim() || undefined,
         image: form.image.trim() || undefined,
         active: form.active,
+        startAt: form.startAt || null,
+        endAt: form.endAt || null,
+        discountCode: form.discountCode.trim() || null,
+        discountPercent: form.discountPercent === '' ? null : Number(form.discountPercent),
+        serviceGroupId: form.serviceGroupId === '' ? null : Number(form.serviceGroupId),
+        ctaLink: form.ctaLink.trim() || null,
       }
       if (editingId) await adminApi.updatePromotion(editingId, payload)
       else await adminApi.createPromotion(payload)
@@ -227,6 +253,34 @@ export function AdminPromotionsPage() {
                   )}
                 </div>
               </div>
+              {/* Khuyến mãi động: thời gian đếm lùi + tham chiếu sản phẩm đang giảm */}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className={label}>Bắt đầu</label>
+                  <input type="datetime-local" className={field} value={form.startAt} onChange={(e) => setForm((f) => ({ ...f, startAt: e.target.value }))} />
+                </div>
+                <div>
+                  <label className={label}>Kết thúc (đếm lùi)</label>
+                  <input type="datetime-local" className={field} value={form.endAt} onChange={(e) => setForm((f) => ({ ...f, endAt: e.target.value }))} />
+                </div>
+                <div>
+                  <label className={label}>Mã giảm giá (hiển thị)</label>
+                  <input className={`${field} uppercase`} value={form.discountCode} onChange={(e) => setForm((f) => ({ ...f, discountCode: e.target.value.toUpperCase() }))} placeholder="VD: STAYTOUR10" />
+                </div>
+                <div>
+                  <label className={label}>% giảm (nhãn)</label>
+                  <input type="number" min={0} max={100} className={field} value={form.discountPercent} onChange={(e) => setForm((f) => ({ ...f, discountPercent: e.target.value }))} placeholder="VD: 20" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={label}>Nhóm dịch vụ đang giảm (tham chiếu tour/homestay)</label>
+                  <select className={field} value={form.serviceGroupId} onChange={(e) => setForm((f) => ({ ...f, serviceGroupId: e.target.value }))}>
+                    <option value="">— Không gắn nhóm —</option>
+                    {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">Trang chủ sẽ hiển thị các tour/homestay trong nhóm này kèm đồng hồ đếm lùi.</p>
+                </div>
+              </div>
+
               <label className="flex items-center gap-2 text-sm text-slate-300">
                 <input
                   type="checkbox"

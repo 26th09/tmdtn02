@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { DualSearchBar } from '../components/DualSearchBar'
 import { ProductCard } from '../components/ProductCard'
 import { ErrorState, Loading } from '../components/StateBlocks'
-import { api, type HomeData } from '../lib/api'
+import { api, type HomeData, type Promotion } from '../lib/api'
 
 // Lý do chọn StayTour (nội dung tĩnh, phong cách "Why choose us" của Travivu).
 const TRUST = [
@@ -179,18 +179,7 @@ export function HomePage() {
               </div>
               <div className="grid gap-6 md:grid-cols-2">
                 {data.promotions.map((p) => (
-                  <div
-                    key={p.id}
-                    className="group relative overflow-hidden rounded-2xl border border-cream-200 bg-white"
-                  >
-                    {p.image && (
-                      <img src={p.image} alt="" className="h-44 w-full object-cover transition duration-500 group-hover:scale-105" />
-                    )}
-                    <div className="p-6">
-                      <h3 className="font-display text-2xl font-semibold text-forest-800">{p.title}</h3>
-                      {p.description && <p className="mt-2 text-sm leading-relaxed text-forest-400">{p.description}</p>}
-                    </div>
-                  </div>
+                  <PromoCard key={p.id} p={p} />
                 ))}
               </div>
             </section>
@@ -222,6 +211,103 @@ export function HomePage() {
           </section>
         </div>
       )}
+    </div>
+  )
+}
+
+// Đồng hồ đếm lùi tới thời điểm kết thúc khuyến mãi (cập nhật mỗi giây).
+function Countdown({ to }: { to: string }) {
+  const [left, setLeft] = useState(() => new Date(to).getTime() - Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setLeft(new Date(to).getTime() - Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [to])
+  if (left <= 0) return <span className="text-sm font-semibold text-clay-600">Đã kết thúc</span>
+  const d = Math.floor(left / 86400000)
+  const h = Math.floor((left % 86400000) / 3600000)
+  const m = Math.floor((left % 3600000) / 60000)
+  const s = Math.floor((left % 60000) / 1000)
+  const Box = ({ v, l }: { v: number; l: string }) => (
+    <span className="flex flex-col items-center">
+      <span className="min-w-[2.2rem] rounded-lg bg-forest-800 px-2 py-1 text-center font-mono text-lg font-bold text-cream-50 tabular-nums">
+        {String(v).padStart(2, '0')}
+      </span>
+      <span className="mt-0.5 text-[10px] uppercase tracking-wide text-forest-400">{l}</span>
+    </span>
+  )
+  return (
+    <div className="flex items-center gap-1.5">
+      {d > 0 && <Box v={d} l="ngày" />}
+      <Box v={h} l="giờ" />
+      <Box v={m} l="phút" />
+      <Box v={s} l="giây" />
+    </div>
+  )
+}
+
+function PromoCard({ p }: { p: Promotion }) {
+  const ending = p.endAt ? new Date(p.endAt).getTime() - Date.now() : null
+  const soon = ending != null && ending > 0 && ending < 3 * 86400000
+  return (
+    <div className="group relative overflow-hidden rounded-2xl border border-cream-200 bg-white">
+      {p.discountPercent != null && (
+        <span className="absolute left-4 top-4 z-10 rounded-full bg-clay-500 px-3 py-1 text-sm font-bold text-white shadow">
+          -{p.discountPercent}%
+        </span>
+      )}
+      {soon && (
+        <span className="absolute right-4 top-4 z-10 animate-pulse rounded-full bg-red-600 px-3 py-1 text-xs font-semibold text-white shadow">
+          Sắp kết thúc!
+        </span>
+      )}
+      {p.image && (
+        <img src={p.image} alt="" className="h-44 w-full object-cover transition duration-500 group-hover:scale-105" />
+      )}
+      <div className="p-6">
+        <h3 className="font-display text-2xl font-semibold text-forest-800">{p.title}</h3>
+        {p.description && <p className="mt-2 text-sm leading-relaxed text-forest-400">{p.description}</p>}
+
+        {p.endAt && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium text-forest-600">Kết thúc sau:</span>
+            <Countdown to={p.endAt} />
+          </div>
+        )}
+
+        {p.discountCode && (
+          <div className="mt-4 inline-flex items-center gap-2 rounded-lg border border-dashed border-clay-400 bg-clay-50 px-3 py-1.5">
+            <span className="text-xs text-forest-500">Mã:</span>
+            <span className="font-mono text-sm font-bold text-clay-600">{p.discountCode}</span>
+          </div>
+        )}
+
+        {/* Tham chiếu tour/homestay đang giảm */}
+        {p.products && p.products.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-forest-400">Đang giảm</p>
+            <div className="flex flex-wrap gap-1.5">
+              {p.products.map((pr) => (
+                <Link
+                  key={`${pr.type}-${pr.id}`}
+                  to={pr.type === 'TOUR' ? `/tour/${pr.slug}` : `/product/${pr.slug}`}
+                  className="rounded-full border border-cream-300 px-3 py-1 text-xs text-forest-600 transition hover:border-forest-400 hover:text-forest-800"
+                >
+                  {pr.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(p.serviceGroup || p.ctaLink) && (
+          <Link
+            to={p.ctaLink || `/search?group=${p.serviceGroup?.id ?? ''}`}
+            className="mt-4 inline-block rounded-full bg-forest-700 px-5 py-2 text-sm font-semibold text-cream-50 transition hover:bg-forest-800"
+          >
+            Xem tất cả ưu đãi →
+          </Link>
+        )}
+      </div>
     </div>
   )
 }

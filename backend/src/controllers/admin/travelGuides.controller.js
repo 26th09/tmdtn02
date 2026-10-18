@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js'
 import { logAdminAction } from '../../lib/auditLog.js'
+import { allGroupsFlat, buildTree, guideIdsInGroup } from '../../lib/serviceGroup.js'
 
 function slugify(s) {
   return String(s)
@@ -36,19 +37,33 @@ async function replaceRelatedTours(tx, guideId, tourIds) {
   }
 }
 
+// Gán bài viết vào các nhóm dịch vụ (dùng chung cây với tour/homestay).
+async function replaceGuideGroups(tx, guideId, groupIds) {
+  if (!Array.isArray(groupIds)) return
+  await tx.serviceGroupGuide.deleteMany({ where: { guideId } })
+  const ids = [...new Set(groupIds.map((x) => Number(x)).filter(Number.isInteger))]
+  for (const groupId of ids) {
+    await tx.serviceGroupGuide.create({ data: { guideId, groupId } }).catch(() => {})
+  }
+}
+
 // Danh sách cẩm nang (mọi trạng thái) cho quản trị.
 export async function listGuides(req, res, next) {
   try {
-    const { status, search } = req.query
+    const { status, search, group } = req.query
     const where = {}
     if (['DRAFT', 'VISIBLE', 'HIDDEN'].includes(status)) where.status = status
     if (search) where.title = { contains: String(search) }
+    if (group) {
+      const ids = await guideIdsInGroup(Number(group))
+      where.id = { in: ids.length ? ids : [-1] }
+    }
     const items = await prisma.travelGuide.findMany({
       where,
       select: {
         id: true, title: true, slug: true, authorName: true, coverImage: true,
         locationName: true, publishedAt: true, status: true, updatedAt: true,
-        _count: { select: { relatedTours: true } },
+        _count: { select: { relatedTours: true, serviceGroups: true } },
       },
       orderBy: { updatedAt: 'desc' },
     })
@@ -63,10 +78,13 @@ export async function getGuide(req, res, next) {
     const id = Number(req.params.id)
     const guide = await prisma.travelGuide.findUnique({
       where: { id },
-      include: { relatedTours: { include: { tour: { select: { id: true, title: true, slug: true } } } } },
+      include: {
+        relatedTours: { include: { tour: { select: { id: true, title: true, slug: true } } } },
+        serviceGroups: { select: { groupId: true } },
+      },
     })
     if (!guide) return res.status(404).json({ message: 'Không tìm thấy bài cẩm nang' })
-    res.json({ guide })
+    res.json({ guide: { ...guide, groupIds: guide.serviceGroups.map((g) => g.groupId) } })
   } catch (err) {
     next(err)
   }
@@ -79,7 +97,8 @@ export async function guideMeta(req, res, next) {
       select: { id: true, title: true, slug: true },
       orderBy: { title: 'asc' },
     })
-    res.json({ tours })
+    const flat = await allGroupsFlat()
+    res.json({ tours, groups: { tree: buildTree(flat), flat } })
   } catch (err) {
     next(err)
   }
@@ -100,11 +119,12 @@ export async function createGuide(req, res, next) {
         data: { ...data, slug, status: 'DRAFT', createdById: req.admin.sub },
       })
       await replaceRelatedTours(tx, created.id, req.body.tourIds)
+      await replaceGuideGroups(tx, created.id, req.body.groupIds)
       return created
     })
     await logAdminAction(req.admin.sub, 'guide.create', { entityType: 'TravelGuide', entityId: guide.id, detail: { title: guide.title } })
-    const full = await prisma.travelGuide.findUnique({ where: { id: guide.id }, include: { relatedTours: { include: { tour: { select: { id: true, title: true, slug: true } } } } } })
-    res.status(201).json({ guide: full })
+    const full = await prisma.travelGuide.findUnique({ where: { id: guide.id }, include: { relatedTours: { include: { tour: { select: { id: true, title: true, slug: true } } } }, serviceGroups: { select: { groupId: true } } } })
+    res.status(201).json({ guide: { ...full, groupIds: full.serviceGroups.map((g) => g.groupId) } })
   } catch (err) {
     next(err)
   }
@@ -127,10 +147,11 @@ export async function updateGuide(req, res, next) {
     await prisma.$transaction(async (tx) => {
       await tx.travelGuide.update({ where: { id }, data })
       await replaceRelatedTours(tx, id, req.body.tourIds)
+      await replaceGuideGroups(tx, id, req.body.groupIds)
     })
     await logAdminAction(req.admin.sub, 'guide.update', { entityType: 'TravelGuide', entityId: id, detail: { title: data.title } })
-    const full = await prisma.travelGuide.findUnique({ where: { id }, include: { relatedTours: { include: { tour: { select: { id: true, title: true, slug: true } } } } } })
-    res.json({ guide: full })
+    const full = await prisma.travelGuide.findUnique({ where: { id }, include: { relatedTours: { include: { tour: { select: { id: true, title: true, slug: true } } } }, serviceGroups: { select: { groupId: true } } } })
+    res.json({ guide: { ...full, groupIds: full.serviceGroups.map((g) => g.groupId) } })
   } catch (err) {
     next(err)
   }

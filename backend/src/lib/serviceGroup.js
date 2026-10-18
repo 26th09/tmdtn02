@@ -55,6 +55,11 @@ export async function propertyIdsInGroup(groupId) {
   const rows = await prisma.serviceGroupProperty.findMany({ where: { groupId: { in: ids } }, select: { propertyId: true } })
   return [...new Set(rows.map((r) => r.propertyId))]
 }
+export async function guideIdsInGroup(groupId) {
+  const ids = await descendantIds(groupId)
+  const rows = await prisma.serviceGroupGuide.findMany({ where: { groupId: { in: ids } }, select: { guideId: true } })
+  return [...new Set(rows.map((r) => r.guideId))]
+}
 
 // Kiểm tra một sản phẩm (tour/property) có thuộc nhóm (gồm nhóm con) không.
 export async function productInGroup({ groupId, tourId, propertyId }) {
