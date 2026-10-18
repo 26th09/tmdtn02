@@ -59,6 +59,21 @@ export function AdminOrderDetailPage() {
     }
   }
 
+  // Ghi nhận/điều chỉnh tiền đã thu (thu tay / 1 phần).
+  async function setPayment(body: { mark?: 'FULL' | 'DEPOSIT' | 'NONE'; paidAmount?: number }) {
+    if (!code) return
+    setError(null); setInfo(null); setBusy(true)
+    try {
+      await adminApi.setOrderPayment(code, body)
+      setInfo('Đã cập nhật ghi nhận thanh toán.')
+      load()
+    } catch (err) {
+      setError(err instanceof AdminApiError ? err.message : 'Cập nhật thanh toán thất bại')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function confirmProcessRefund(refund: AdminRefundRequest) {
     if (!code || !refRefund) return
     setError(null)
@@ -120,17 +135,38 @@ export function AdminOrderDetailPage() {
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-slate-950 p-5">
-          <h2 className="mb-3 font-semibold text-slate-200">Thanh toán</h2>
+          <h2 className="mb-3 font-semibold text-slate-200">Thanh toán & tài chính</h2>
           <dl className="space-y-1 text-sm">
+            <Row label="Phương thức" value={order.paymentMethod === 'COD' ? 'Thu tay (COD)' : order.paymentMethod || '-'} />
+            <Row
+              label="Trạng thái TT"
+              value={order.paymentState === 'PAID' ? '✅ Đã thanh toán đủ' : order.paymentState === 'PARTIAL' ? '🟡 Thanh toán 1 phần' : '⚪ Chưa thanh toán'}
+            />
+            <Row label="Phải trả" value={fmt(order.payable)} />
+            <Row label="Đã thu" value={fmt(order.paidAmount)} />
+            {order.outstanding > 0 && <Row label="Còn thiếu" value={fmt(order.outstanding)} />}
             <Row label="Tổng tiền" value={fmt(order.totalPrice)} />
-            <Row label="Đặt cọc" value={fmt(order.depositAmount)} />
-            <Row label="Còn lại" value={fmt(order.remainingAmount)} />
-            <Row label="Phương thức" value={order.paymentMethod || '-'} />
-            <Row label="Mã giao dịch" value={order.transactionId || '-'} />
-            <Row label="Cọc lúc" value={fmtDate(order.depositPaidAt)} />
             {order.discountCode && <Row label="Mã giảm giá" value={`${order.discountCode} (-${fmt(order.discountAmount)})`} />}
+            <Row label="Đủ thông tin liên hệ" value={order.contactComplete ? 'Có' : '⚠ Thiếu'} />
+            {order.fullPaymentDeadline && (
+              <Row label="Hạn trả đủ" value={fmtDate(order.fullPaymentDeadline)} />
+            )}
+            {order.codDeadline && <Row label="Hạn thu tay" value={fmtDate(order.codDeadline)} />}
+            {order.transactionId && <Row label="Mã giao dịch" value={order.transactionId} />}
             {order.cancelledAt && <Row label="Hủy lúc" value={fmtDate(order.cancelledAt)} />}
           </dl>
+
+          {order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && (
+            <div className="mt-4 border-t border-slate-800 pt-3">
+              <p className="mb-2 text-xs font-medium text-slate-400">Ghi nhận thanh toán (thu tay / 1 phần)</p>
+              <div className="flex flex-wrap gap-2">
+                <button disabled={busy} onClick={() => setPayment({ mark: 'FULL' })} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">Đã thu đủ</button>
+                <button disabled={busy} onClick={() => setPayment({ mark: 'DEPOSIT' })} className="rounded-lg border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50">Đã thu cọc</button>
+                <button disabled={busy} onClick={() => setPayment({ mark: 'NONE' })} className="rounded-lg border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50">Chưa thu</button>
+                <PaymentAmountInput disabled={busy} onSubmit={(v) => setPayment({ paidAmount: v })} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -279,5 +315,26 @@ function Row({ label, value }: { label: string; value: string }) {
       <dt className="text-slate-500">{label}</dt>
       <dd className="text-right text-slate-200">{value}</dd>
     </div>
+  )
+}
+
+// Ô nhập số tiền thu cụ thể (thanh toán 1 phần).
+function PaymentAmountInput({ disabled, onSubmit }: { disabled: boolean; onSubmit: (v: number) => void }) {
+  const [v, setV] = useState('')
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); const n = Number(v); if (!Number.isNaN(n)) onSubmit(n) }}
+      className="flex items-center gap-1"
+    >
+      <input
+        type="number"
+        min={0}
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        placeholder="Số tiền đã thu"
+        className="w-32 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 focus:border-emerald-500 focus:outline-none"
+      />
+      <button disabled={disabled || v === ''} type="submit" className="rounded-lg border border-slate-600 px-2.5 py-1.5 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50">Ghi nhận</button>
+    </form>
   )
 }

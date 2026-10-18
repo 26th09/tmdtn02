@@ -1,4 +1,6 @@
 import { prisma } from '../../lib/prisma.js'
+import { getSystemConfig } from '../../lib/config.js'
+import { splitTax } from '../../lib/payment.js'
 
 const DAY_MS = 86400000
 
@@ -116,10 +118,15 @@ export async function getReports(req, res, next) {
       .filter((g) => g.amount > 0)
       .sort((a, b) => b.amount - a.amount)
 
+    // Tách thuế GTGT trên doanh thu thuần (giá đã gồm VAT).
+    const cfg = await getSystemConfig()
+    const net = grossRevenue - refundedAmount
+    const { tax, afterTax, vatPercent } = splitTax(net, cfg.vatPercent)
+
     // 2a: không có dữ liệu trong kỳ — frontend tự hiển thị thông báo khi mọi mảng đều rỗng.
     res.json({
       range: { from: from.toISOString(), to: to.toISOString() },
-      revenue: { gross: grossRevenue, refunded: refundedAmount, net: grossRevenue - refundedAmount, byDay: revenueByDay },
+      revenue: { gross: grossRevenue, refunded: refundedAmount, net, vatPercent, tax, afterTax, byDay: revenueByDay },
       ordersByStatus,
       topTours,
       homestayOccupancy,

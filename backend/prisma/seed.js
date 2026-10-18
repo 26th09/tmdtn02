@@ -111,6 +111,8 @@ async function seedBookingsAndReviews(props, tours) {
         checkIn, checkOut, nights,
         guests: adults, children,
         totalPrice: total, depositAmount: deposit, remainingAmount: total - deposit,
+        // Tiền đã nhận: hoàn tất -> đủ; VNPAY đã cọc; thu tay (COD) -> chưa nhận (0).
+        paidAmount: status === 'COMPLETED' ? total : paid && gi % 2 === 0 ? deposit : 0,
         paymentMethod: paid ? (gi % 2 === 0 ? 'VNPAY' : 'COD') : null,
         depositPaidAt: paid ? checkIn : null,
         cancelledAt: status === 'CANCELLED' ? checkIn : null,

@@ -61,6 +61,10 @@ export async function updateConfig(req, res, next) {
       sellerPhone: req.body.sellerPhone || null,
       sellerEmail: req.body.sellerEmail || null,
       siteNotice: req.body.siteNotice || null,
+      // Tài chính (chỉ cập nhật khi được gửi).
+      ...(req.body.vatPercent != null && req.body.vatPercent !== '' ? { vatPercent: Number(req.body.vatPercent) } : {}),
+      ...(req.body.fullPaymentHoursBeforeStart != null && req.body.fullPaymentHoursBeforeStart !== '' ? { fullPaymentHoursBeforeStart: Number(req.body.fullPaymentHoursBeforeStart) } : {}),
+      ...(req.body.codDueDays != null && req.body.codDueDays !== '' ? { codDueDays: Number(req.body.codDueDays) } : {}),
     }
 
     const config = await prisma.systemConfig.upsert({ where: { id: 1 }, create: { id: 1, ...data }, update: data })

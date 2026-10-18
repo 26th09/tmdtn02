@@ -83,6 +83,17 @@ export function AdminReportsPage() {
                 <div className="text-lg font-bold text-white">{fmt(data.revenue.net)}</div>
               </div>
             </div>
+            {/* Tách thuế GTGT */}
+            <div className="mb-4 flex flex-wrap gap-6 rounded-lg border border-slate-800 bg-slate-900 p-3 text-sm">
+              <div>
+                <div className="text-slate-500">Doanh thu sau thuế</div>
+                <div className="text-lg font-bold text-emerald-300">{fmt(data.revenue.afterTax ?? data.revenue.net)}</div>
+              </div>
+              <div>
+                <div className="text-slate-500">Thuế GTGT ({data.revenue.vatPercent ?? 0}%)</div>
+                <div className="text-lg font-bold text-amber-300">{fmt(data.revenue.tax ?? 0)}</div>
+              </div>
+            </div>
             {data.revenue.byDay.length > 0 && (
               <div className="space-y-1">
                 {data.revenue.byDay.map((d) => {

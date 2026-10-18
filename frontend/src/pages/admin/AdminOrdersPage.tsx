@@ -21,6 +21,14 @@ const STATUS_COLOR: Record<string, string> = {
 const LABEL_TO_STATUS: Record<string, string> = Object.fromEntries(
   Object.entries(STATUS_LABEL).map(([k, v]) => [v.toLowerCase(), k]),
 )
+const PAY_LABEL: Record<string, string> = { PAID: 'Đã thanh toán', PARTIAL: 'Thanh toán 1 phần', UNPAID: 'Chưa thanh toán' }
+const PAY_COLOR: Record<string, string> = {
+  PAID: 'bg-emerald-900 text-emerald-300',
+  PARTIAL: 'bg-amber-900 text-amber-300',
+  UNPAID: 'bg-slate-800 text-slate-400',
+}
+const METHOD_LABEL: Record<string, string> = { VNPAY: 'VNPAY', COD: 'Thu tay', CASH: 'Thu tay' }
+const fmtVnd = (n: number) => n.toLocaleString('vi-VN') + '₫'
 
 const field = 'rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none'
 const btn = 'rounded-lg px-3 py-2 text-sm font-semibold'
@@ -30,6 +38,7 @@ type ImportResult = { updatedCount: number; total: number; results: { code: stri
 // UC-18 – Danh sách đơn kèm bộ lọc (trạng thái/loại/khoảng ngày/khoảng giá/tìm kiếm) + xuất/nhập Excel.
 export function AdminOrdersPage() {
   const [items, setItems] = useState<AdminOrder[]>([])
+  const [tab, setTab] = useState<'ALL' | 'PAID' | 'PROGRESS' | 'CANCELLED'>('ALL')
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [type, setType] = useState('')
@@ -118,6 +127,28 @@ export function AdminOrdersPage() {
     }
   }
 
+  // Phân nhóm theo thanh toán: Đã TT (full/hoàn tất) · Đang TT (thu tay/1 phần còn hoạt động) · Đã hủy.
+  const isPaid = (o: AdminOrder) => o.paymentState === 'PAID' || o.status === 'COMPLETED'
+  const inProgress = (o: AdminOrder) => o.status !== 'CANCELLED' && o.status !== 'COMPLETED' && o.paymentState !== 'PAID'
+  const counts = {
+    ALL: items.length,
+    PAID: items.filter(isPaid).length,
+    PROGRESS: items.filter(inProgress).length,
+    CANCELLED: items.filter((o) => o.status === 'CANCELLED').length,
+  }
+  const filtered = items.filter((o) => {
+    if (tab === 'PAID') return isPaid(o)
+    if (tab === 'PROGRESS') return inProgress(o)
+    if (tab === 'CANCELLED') return o.status === 'CANCELLED'
+    return true
+  })
+  const TABS: { key: typeof tab; label: string }[] = [
+    { key: 'ALL', label: 'Tất cả' },
+    { key: 'PAID', label: 'Đã thanh toán' },
+    { key: 'PROGRESS', label: 'Đang thanh toán' },
+    { key: 'CANCELLED', label: 'Đã hủy' },
+  ]
+
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -131,6 +162,18 @@ export function AdminOrdersPage() {
             <input ref={fileInput} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={onImportFile} disabled={importing} />
           </label>
         </div>
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-2 border-b border-slate-800">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${tab === t.key ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+          >
+            {t.label} <span className="text-xs text-slate-500">({counts[t.key]})</span>
+          </button>
+        ))}
       </div>
 
       <div className="mb-2 flex flex-wrap items-end gap-3">
@@ -183,11 +226,11 @@ export function AdminOrdersPage() {
 
       {loading ? (
         <p className="text-slate-500">Đang tải...</p>
-      ) : items.length === 0 ? (
-        <p className="text-slate-500">Không có đơn nào khớp bộ lọc.</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-slate-500">Không có đơn nào.</p>
       ) : (
         <>
-          <p className="mb-2 text-sm text-slate-500">{items.length} đơn</p>
+          <p className="mb-2 text-sm text-slate-500">{filtered.length} đơn</p>
           <div className="overflow-x-auto rounded-xl border border-slate-800">
             <table className="w-full text-sm">
               <thead className="bg-slate-950 text-left text-slate-400">
@@ -195,27 +238,37 @@ export function AdminOrdersPage() {
                   <th className="px-4 py-3">Mã đơn</th>
                   <th className="px-4 py-3">Sản phẩm</th>
                   <th className="px-4 py-3">Khách</th>
-                  <th className="px-4 py-3">Ngày</th>
-                  <th className="px-4 py-3">Tổng tiền</th>
+                  <th className="px-4 py-3">Thanh toán</th>
                   <th className="px-4 py-3">Trạng thái</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
-                {items.map((o) => (
+                {filtered.map((o) => (
                   <tr key={o.code} className="border-t border-slate-800">
                     <td className="px-4 py-3 font-mono text-slate-200">{o.code}</td>
                     <td className="px-4 py-3 text-slate-300">
                       {o.productName} <span className="text-xs text-slate-500">({o.type === 'HOMESTAY' ? 'Homestay' : 'Tour'})</span>
                     </td>
                     <td className="px-4 py-3 text-slate-400">
-                      {o.guestName}
+                      <span className="flex items-center gap-1">
+                        {o.guestName}
+                        {!o.contactComplete && <span title="Thiếu thông tin liên hệ" className="text-amber-400">⚠</span>}
+                      </span>
                       <div className="text-xs text-slate-600">{o.guestEmail}</div>
                     </td>
-                    <td className="px-4 py-3 text-slate-400">{o.checkIn ? new Date(o.checkIn).toLocaleDateString('vi-VN') : '-'}</td>
-                    <td className="px-4 py-3 text-slate-400">{o.totalPrice.toLocaleString('vi-VN')}₫</td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${PAY_COLOR[o.paymentState]}`}>{PAY_LABEL[o.paymentState]}</span>
+                      <div className="mt-0.5 text-xs text-slate-500">
+                        {METHOD_LABEL[o.paymentMethod ?? ''] ?? (o.paymentMethod || '—')} · {fmtVnd(o.paidAmount)}/{fmtVnd(o.payable)}
+                        {o.outstanding > 0 && <span className="text-amber-400"> · thiếu {fmtVnd(o.outstanding)}</span>}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_COLOR[o.status]}`}>{STATUS_LABEL[o.status]}</span>
+                      {o.status === 'CANCELLED' && o.refundRatio != null && (
+                        <div className="mt-0.5 text-xs text-slate-500">Hoàn {o.refundRatio}%{o.refundAmount ? ` · ${fmtVnd(o.refundAmount)}` : ''}</div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <Link to={`/admin/orders/${o.code}`} className="text-emerald-400 hover:underline">Chi tiết</Link>

@@ -146,6 +146,12 @@ model SystemConfig {
   cancelTier1Ratio   Int      @default(100)
   cancelTier2Days    Int      @default(3) // hủy trước >= X ngày (nhưng < tier1) -> cancelTier2Ratio; dưới X ngày -> 0%
   cancelTier2Ratio   Int      @default(50)
+
+  // Tài chính
+  vatPercent                  Int @default(8) // % thuế GTGT để tách doanh thu (cấu hình được)
+  fullPaymentHoursBeforeStart Int @default(1) // phải thanh toán đủ trước X giờ so với ngày đi/checkin
+  codDueDays                  Int @default(7) // thu tay (COD): phải thanh toán trong X ngày kể từ khi đặt
+
   sellerName         String?  @default("StayTour")
   sellerAddress      String?
   sellerPhone        String?
@@ -250,6 +256,7 @@ model Booking {
   totalPrice      Int
   depositAmount   Int
   remainingAmount Int
+  paidAmount      Int @default(0) // tổng tiền ĐÃ NHẬN thực tế (COD/thu tay chỉ cộng khi admin xác nhận)
 
   // UC-11 – Thanh toán & đặt cọc
   paymentMethod String? // VNPAY | COD
