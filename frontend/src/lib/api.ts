@@ -427,7 +427,7 @@ export const api = {
     post<{ favorited: boolean; productId: number }>('/api/favorites', { productId }),
   removeFavorite: (productId: number) =>
     request<{ favorited: boolean; productId: number }>(`/api/favorites/${productId}`, { method: 'DELETE' }),
-  getBookingConfig: () => get<{ depositRate: number; holdMinutes: number }>('/api/bookings/config'),
+  getBookingConfig: () => get<{ depositRate: number; holdMinutes: number; vatPercent?: number }>('/api/bookings/config'),
   createHomestayBooking: (data: {
     slug: string
     checkIn: string
@@ -588,4 +588,11 @@ export interface RegisterResult {
 
 export function formatPrice(v: number): string {
   return v.toLocaleString('vi-VN') + '₫'
+}
+
+// Tách thuế GTGT từ một khoản tiền ĐÃ GỒM VAT: net (chưa VAT) + tax.
+export function splitVat(grossInclVat: number, vatPercent: number | undefined) {
+  const v = vatPercent || 0
+  const tax = v > 0 ? Math.round((grossInclVat * v) / (100 + v)) : 0
+  return { gross: grossInclVat, tax, net: grossInclVat - tax, vatPercent: v }
 }

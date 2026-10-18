@@ -105,10 +105,15 @@ export function AdminOrderDetailPage() {
         </Link>{' '}
         / {order.code}
       </nav>
-      <h1 className="mb-6 text-2xl font-bold text-white">
-        Đơn {order.code}{' '}
-        <span className="ml-2 rounded-full bg-slate-800 px-2 py-0.5 text-sm text-slate-400">{STATUS_LABEL[order.status]}</span>
-      </h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold text-white">
+          Đơn {order.code}{' '}
+          <span className="ml-2 rounded-full bg-slate-800 px-2 py-0.5 text-sm text-slate-400">{STATUS_LABEL[order.status]}</span>
+        </h1>
+        <Link to={`/admin/orders/${order.code}/invoice`} className="rounded-lg border border-emerald-700 px-3 py-1.5 text-sm text-emerald-300 hover:bg-emerald-950/40">
+          🧾 Xuất hóa đơn VAT
+        </Link>
+      </div>
 
       {info && <div className="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/40 px-4 py-2 text-sm text-emerald-300">{info}</div>}
       {error && <div className="mb-4 rounded-lg border border-red-800 bg-red-950/40 px-4 py-2 text-sm text-red-300">⚠️ {error}</div>}

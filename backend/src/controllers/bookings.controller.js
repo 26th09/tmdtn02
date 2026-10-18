@@ -12,12 +12,14 @@ import {
   releaseExpiredTourHolds,
 } from '../lib/booking.js'
 import { validateDiscount } from '../lib/discount.js'
+import { getSystemConfig } from '../lib/config.js'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-// Cấu hình công khai cho luồng đặt (tỷ lệ cọc, hạn giữ chỗ).
+// Cấu hình công khai cho luồng đặt (tỷ lệ cọc, hạn giữ chỗ, % VAT để tách thuế hiển thị).
 export async function bookingConfig(req, res) {
-  res.json({ depositRate: await getDepositRate(), holdMinutes: HOLD_MINUTES })
+  const cfg = await getSystemConfig()
+  res.json({ depositRate: await getDepositRate(), holdMinutes: HOLD_MINUTES, vatPercent: cfg.vatPercent })
 }
 
 function publicBooking(b, productName, productSlug) {

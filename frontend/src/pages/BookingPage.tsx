@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ErrorState, Loading } from '../components/StateBlocks'
-import { ApiError, api, formatPrice, type BookingResult, type DetailResponse } from '../lib/api'
+import { ApiError, api, formatPrice, splitVat, type BookingResult, type DetailResponse } from '../lib/api'
 import { useAuth } from '../lib/auth'
 
 function nightsCount(from: string, to: string): number {
@@ -26,6 +26,7 @@ export function BookingPage() {
 
   const [detail, setDetail] = useState<DetailResponse | null>(null)
   const [depositRate, setDepositRate] = useState(0.3)
+  const [vatPercent, setVatPercent] = useState(8)
   const [vnpayEnabled, setVnpayEnabled] = useState(false)
   const [payOnDepMinHours, setPayOnDepMinHours] = useState(48)
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading')
@@ -59,6 +60,7 @@ export function BookingPage() {
     Promise.all([api.getBookingConfig(), api.getPaymentConfig()])
       .then(async ([cfg, pay]) => {
         setDepositRate(cfg.depositRate)
+        setVatPercent(cfg.vatPercent ?? 8)
         setVnpayEnabled(pay.vnpayEnabled)
         setPayOnDepMinHours(pay.payOnDepartureMinHours ?? 48)
         // Homestay (Property) hay Tour (bảng riêng)? Thử homestay trước, 404 -> tour.
@@ -729,6 +731,16 @@ export function BookingPage() {
                   </>
                 )}
                 <Row label="Còn lại (trả sau)" value={formatPrice(remaining)} />
+              </div>
+
+              {/* Giá đã GỒM VAT — tách hiển thị phần chưa VAT + VAT */}
+              <div className="mt-3 space-y-1 border-t border-cream-100 pt-3 text-xs text-forest-400">
+                <Row label="Giá chưa VAT" value={formatPrice(splitVat(payableTotal, vatPercent).net)} />
+                <Row label={`Thuế VAT (${vatPercent}%)`} value={formatPrice(splitVat(payableTotal, vatPercent).tax)} />
+                <div className="flex items-center justify-between font-medium text-forest-700">
+                  <span>Giá đã gồm VAT</span>
+                  <span>{formatPrice(payableTotal)}</span>
+                </div>
               </div>
 
               <div className="mt-4 flex items-center justify-between rounded-2xl bg-forest-700 px-5 py-4 text-cream-50">

@@ -24,6 +24,7 @@ import { AdminGuidesPage } from './pages/admin/AdminGuidesPage'
 import { AdminGuideFormPage } from './pages/admin/AdminGuideFormPage'
 import { AdminOrdersPage } from './pages/admin/AdminOrdersPage'
 import { AdminOrderDetailPage } from './pages/admin/AdminOrderDetailPage'
+import { AdminInvoicePage } from './pages/admin/AdminInvoicePage'
 import { AdminUsersPage } from './pages/admin/AdminUsersPage'
 import { AdminDiscountsPage } from './pages/admin/AdminDiscountsPage'
 import { AdminPromotionsPage } from './pages/admin/AdminPromotionsPage'
@@ -91,6 +92,7 @@ function App() {
           {/* UC-18 – Quản lý đơn & xử lý hủy/hoàn tiền */}
           <Route path="orders" element={<AdminOrdersPage />} />
           <Route path="orders/:code" element={<AdminOrderDetailPage />} />
+          <Route path="orders/:code/invoice" element={<AdminInvoicePage />} />
           {/* UC-19 – Quản lý người dùng & phân quyền */}
           <Route path="users" element={<AdminUsersPage />} />
           {/* UC-20 – Quản lý mã khuyến mại */}
