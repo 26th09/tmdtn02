@@ -93,8 +93,16 @@ export async function getHome(req, res, next) {
       }),
       prisma.area.findMany({ orderBy: { order: 'asc' } }),
       prisma.promotion.findMany({
-        where: { active: true },
-        orderBy: { createdAt: 'desc' },
+        where: {
+          active: true,
+          // Còn hiệu lực theo thời gian (nếu có đặt mốc).
+          AND: [
+            { OR: [{ startAt: null }, { startAt: { lte: new Date() } }] },
+            { OR: [{ endAt: null }, { endAt: { gte: new Date() } }] },
+          ],
+        },
+        include: { serviceGroup: { select: { id: true, name: true, slug: true } } },
+        orderBy: [{ endAt: 'asc' }, { createdAt: 'desc' }],
       }),
     ])
 
@@ -103,10 +111,26 @@ export async function getHome(req, res, next) {
       .sort((a, b) => b.rating - a.rating)
       .slice(0, 8)
 
+    // Khuyến mãi động: với mỗi CTKM gắn nhóm, đính kèm vài tour/homestay đang giảm (để tham chiếu).
+    const promotionsFull = await Promise.all(
+      promotions.map(async (p) => {
+        let products = []
+        if (p.serviceGroupId) {
+          const [tIds, pIds] = await Promise.all([tourIdsInGroup(p.serviceGroupId), propertyIdsInGroup(p.serviceGroupId)])
+          const [tRows, pRows] = await Promise.all([
+            tIds.length ? prisma.tour.findMany({ where: { id: { in: tIds }, status: 'VISIBLE' }, select: tourCardSelect, take: 6 }) : [],
+            pIds.length ? prisma.property.findMany({ where: { id: { in: pIds }, status: 'VISIBLE' }, select: propertyCardSelect, take: 6 }) : [],
+          ])
+          products = [...tRows.map(tourToCard), ...pRows.map(propertyToCard)].slice(0, 8)
+        }
+        return { ...p, products }
+      }),
+    )
+
     res.json({
       featured,
       areas,
-      promotions,
+      promotions: promotionsFull,
     })
   } catch (err) {
     next(err)

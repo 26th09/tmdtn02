@@ -612,12 +612,25 @@ async function main() {
     ],
   })
 
-  // ---- Khuyến mại (banner trang chủ) ----
-  await prisma.promotion.createMany({
-    data: [
-      { title: 'Giảm 20% đặt homestay dịp lễ', description: 'Áp dụng cho đơn đặt trước 7 ngày.', image: img('photo-1501785888041-af3ef285b470'), active: true },
-      { title: 'Tour Tây Bắc mùa săn mây', description: 'Ưu đãi nhóm từ 4 khách trở lên.', image: img('photo-1464822759023-fed622ff2c3b'), active: true },
-    ],
+  // ---- Khuyến mại động (banner trang chủ: đếm lùi + tham chiếu tour/homestay đang giảm) ----
+  const nowMs = Date.now()
+  const grpTayBac = await prisma.serviceGroup.findFirst({ where: { slug: slugForGroup('Tây Bắc') } })
+  const grpPhuQuoc = await prisma.serviceGroup.findFirst({ where: { slug: slugForGroup('Phú Quốc – Kiên Giang') } })
+  await prisma.promotion.create({
+    data: {
+      title: 'Flash Sale Tây Bắc mùa săn mây', description: 'Giảm sâu cho tour & homestay Tây Bắc — số lượng có hạn!',
+      image: img('photo-1464822759023-fed622ff2c3b'), active: true,
+      startAt: new Date(nowMs - 86400_000), endAt: new Date(nowMs + 2 * 86400_000 + 5 * 3600_000),
+      discountCode: 'STAYTOUR10', discountPercent: 20, serviceGroupId: grpTayBac?.id ?? null,
+    },
+  })
+  await prisma.promotion.create({
+    data: {
+      title: 'Hè rực rỡ Phú Quốc', description: 'Ưu đãi combo biển đảo Phú Quốc, áp dụng đến hết tuần.',
+      image: img('photo-1582719478250-c89cae4dc85b'), active: true,
+      startAt: new Date(nowMs - 2 * 86400_000), endAt: new Date(nowMs + 6 * 86400_000),
+      discountCode: 'HE2026', discountPercent: 15, serviceGroupId: grpPhuQuoc?.id ?? null,
+    },
   })
 
   // ---- Mã giảm giá ----

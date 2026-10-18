@@ -299,14 +299,16 @@ export const adminApi = {
     patchReq<{ departure: Departure }>(`/api/admin/tours/${tourId}/departures/${depId}/close`, {}),
 
   // Cẩm nang du lịch (quản trị)
-  listGuides: (params: { status?: string; search?: string } = {}) => {
+  listGuides: (params: { status?: string; search?: string; group?: number } = {}) => {
     const qs = new URLSearchParams()
     if (params.status) qs.set('status', params.status)
     if (params.search) qs.set('search', params.search)
+    if (params.group) qs.set('group', String(params.group))
     return get<{ items: AdminGuideListItem[] }>(`/api/admin/guides?${qs.toString()}`)
   },
   getGuide: (id: number) => get<{ guide: AdminGuideDetail }>(`/api/admin/guides/${id}`),
-  getGuideMeta: () => get<{ tours: { id: number; title: string; slug: string }[] }>('/api/admin/guides/meta'),
+  getGuideMeta: () =>
+    get<{ tours: { id: number; title: string; slug: string }[]; groups: { tree: ServiceGroup[]; flat: ServiceGroup[] } }>('/api/admin/guides/meta'),
   createGuide: (data: Record<string, unknown>) => post<{ guide: AdminGuideDetail }>('/api/admin/guides', data),
   updateGuide: (id: number, data: Record<string, unknown>) => putReq<{ guide: AdminGuideDetail }>(`/api/admin/guides/${id}`, data),
   setGuideVisibility: (id: number, status: 'DRAFT' | 'VISIBLE' | 'HIDDEN') =>
@@ -495,6 +497,13 @@ export interface AdminPromotion {
   description: string | null
   image: string | null
   active: boolean
+  startAt: string | null
+  endAt: string | null
+  discountCode: string | null
+  discountPercent: number | null
+  serviceGroupId: number | null
+  serviceGroup?: { id: number; name: string } | null
+  ctaLink: string | null
   createdAt: string
 }
 
@@ -813,4 +822,5 @@ export interface AdminGuideDetail {
   publishedAt: string | null
   status: 'DRAFT' | 'VISIBLE' | 'HIDDEN'
   relatedTours: { guideId: number; tourId: number; tour: { id: number; title: string; slug: string } }[]
+  groupIds?: number[]
 }

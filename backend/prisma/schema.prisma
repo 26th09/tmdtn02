@@ -883,6 +883,16 @@ model Promotion {
   description String?
   image       String?
   active      Boolean  @default(true)
+
+  // Khuyến mãi động: khung thời gian (đếm lùi) + tham chiếu sản phẩm đang giảm.
+  startAt         DateTime?
+  endAt           DateTime? // mốc kết thúc để đếm lùi
+  discountCode    String? // mã giảm giá liên quan (hiển thị để khách áp dụng)
+  discountPercent Int? // % giảm để hiển thị nhãn
+  serviceGroupId  Int? // nhóm dịch vụ chứa tour/homestay đang giảm
+  serviceGroup    ServiceGroup? @relation(fields: [serviceGroupId], references: [id])
+  ctaLink         String? // liên kết tuỳ chọn (vd: /search?group=...)
+
   createdAt   DateTime @default(now())
 
   @@index([active])
@@ -1004,6 +1014,7 @@ model ServiceGroup {
   properties ServiceGroupProperty[]
   guides     ServiceGroupGuide[]
   discountCodes DiscountCode[] // mã giảm giá nhắm theo nhóm
+  promotions    Promotion[] // chương trình khuyến mãi gắn nhóm này
 
   @@index([parentId])
 }

@@ -12,6 +12,7 @@ export async function listPromotions(req, res, next) {
 
     const items = await prisma.promotion.findMany({
       where,
+      include: { serviceGroup: { select: { id: true, name: true } } },
       orderBy: { createdAt: 'desc' },
     })
     res.json({ items })
@@ -31,15 +32,22 @@ export async function getPromotion(req, res, next) {
   }
 }
 
+const str = (v) => (typeof v === 'string' && v.trim() !== '' ? v.trim() : null)
+const numOrNull = (v) => (v != null && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : null)
+
 function parseBody(body) {
   const title = typeof body.title === 'string' ? body.title.trim() : ''
-  const description = typeof body.description === 'string' ? body.description.trim() : ''
-  const image = typeof body.image === 'string' ? body.image.trim() : ''
   return {
     title,
-    description: description || null,
-    image: image || null,
+    description: str(body.description),
+    image: str(body.image),
     active: body.active === undefined ? true : Boolean(body.active),
+    startAt: body.startAt ? new Date(body.startAt) : null,
+    endAt: body.endAt ? new Date(body.endAt) : null,
+    discountCode: str(body.discountCode) ? String(body.discountCode).trim().toUpperCase() : null,
+    discountPercent: numOrNull(body.discountPercent),
+    serviceGroupId: numOrNull(body.serviceGroupId),
+    ctaLink: str(body.ctaLink),
   }
 }
 

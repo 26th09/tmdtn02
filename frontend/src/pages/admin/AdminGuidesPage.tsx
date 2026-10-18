@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AdminApiError, adminApi, type AdminGuideListItem } from '../../lib/adminApi'
+import { AdminApiError, adminApi, type AdminGuideListItem, type ServiceGroup } from '../../lib/adminApi'
 
 const STATUS_LABEL: Record<string, string> = { DRAFT: 'Nháp', VISIBLE: 'Hiển thị', HIDDEN: 'Ẩn' }
 const STATUS_STYLE: Record<string, string> = {
@@ -13,16 +13,22 @@ export function AdminGuidesPage() {
   const [items, setItems] = useState<AdminGuideListItem[]>([])
   const [status, setStatus] = useState('')
   const [search, setSearch] = useState('')
+  const [group, setGroup] = useState('')
+  const [groups, setGroups] = useState<ServiceGroup[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  useEffect(() => {
+    adminApi.listServiceGroups().then((r) => setGroups(r.flat)).catch(() => setGroups([]))
+  }, [])
+
   const load = useCallback(() => {
     setLoading(true)
-    adminApi.listGuides({ status: status || undefined, search: search || undefined })
+    adminApi.listGuides({ status: status || undefined, search: search || undefined, group: group ? Number(group) : undefined })
       .then((d) => setItems(d.items))
       .catch((err) => setError(err instanceof AdminApiError ? err.message : 'Không tải được danh sách'))
       .finally(() => setLoading(false))
-  }, [status, search])
+  }, [status, search, group])
 
   useEffect(() => { load() }, [load])
 
@@ -65,6 +71,10 @@ export function AdminGuidesPage() {
           <option value="DRAFT">Nháp</option>
           <option value="VISIBLE">Hiển thị</option>
           <option value="HIDDEN">Ẩn</option>
+        </select>
+        <select value={group} onChange={(e) => setGroup(e.target.value)} className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none">
+          <option value="">Tất cả nhóm</option>
+          {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
         </select>
       </div>
 
