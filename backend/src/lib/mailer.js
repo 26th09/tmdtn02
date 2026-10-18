@@ -75,6 +75,48 @@ export async function sendBookingEmail(to, booking) {
   return true
 }
 
+// "Trả sau khi đi tour": đã tiếp nhận yêu cầu, điều hành sẽ gọi xác nhận.
+export async function sendPayOnDepartureRequestEmail(to, info) {
+  const from = process.env.MAIL_FROM || 'StayTour <no-reply@staytour.example>'
+  const fmt = (n) => (n || 0).toLocaleString('vi-VN') + '₫'
+  const html = `
+    <p>Cảm ơn bạn đã đặt tour tại StayTour!</p>
+    <p>Yêu cầu đặt chỗ <strong>${info.code}</strong> ${info.productName || ''} đã được tiếp nhận theo hình thức
+       <strong>Trả sau khi đi tour</strong> (không cần trả tiền ngay).</p>
+    <p>Điều hành viên sẽ liên hệ (gọi điện/Zalo) để xác nhận điểm đón và số lượng khách
+       trong thời gian sớm nhất (thường trong vòng ~15 phút giờ hành chính).</p>
+    <p>Số tiền cần chuẩn bị để thanh toán cho hướng dẫn viên/tài xế vào ngày khởi hành:
+       <strong>${fmt(info.payable)}</strong>.</p>
+    <p>⚠️ Vui lòng giữ máy liên lạc. Hủy không báo trước có thể ảnh hưởng tới các lần đặt sau.</p>
+  `
+  if (!transporter) {
+    console.log(`[MAILER dev] Tiếp nhận trả-sau đơn ${info.code} tới ${to}: chuẩn bị ${fmt(info.payable)}`)
+    return true
+  }
+  await transporter.sendMail({ from, to, subject: `Đã tiếp nhận yêu cầu đặt tour ${info.code} — StayTour`, html })
+  return true
+}
+
+// Voucher/vé điện tử khi điều hành XÁC NHẬN đơn trả-sau.
+export async function sendTourVoucherEmail(to, info) {
+  const from = process.env.MAIL_FROM || 'StayTour <no-reply@staytour.example>'
+  const fmt = (n) => (n || 0).toLocaleString('vi-VN') + '₫'
+  const html = `
+    <p>🎉 Đặt tour <strong>THÀNH CÔNG</strong>!</p>
+    <p>Đơn <strong>${info.code}</strong> ${info.productName || ''} của bạn đã được xác nhận. Đây là vé điện tử / voucher của bạn.</p>
+    <p><strong>Mã đặt chỗ:</strong> ${info.code}</p>
+    <p>Vui lòng chuẩn bị sẵn <strong>${fmt(info.payable)}</strong> để thanh toán cho hướng dẫn viên tại điểm đón
+       (tiền mặt hoặc quét mã QR).</p>
+    <p>Chúc bạn có một chuyến đi tuyệt vời cùng StayTour!</p>
+  `
+  if (!transporter) {
+    console.log(`[MAILER dev] Voucher xác nhận đơn ${info.code} tới ${to}: thu ${fmt(info.payable)} khi đi`)
+    return true
+  }
+  await transporter.sendMail({ from, to, subject: `Xác nhận đặt tour ${info.code} — Vé điện tử StayTour`, html })
+  return true
+}
+
 // Gửi email xác nhận hủy đơn (UC-14). BR-60: nêu rõ mức hoàn tiền áp dụng.
 export async function sendCancellationEmail(to, info) {
   const from = process.env.MAIL_FROM || 'StayTour <no-reply@staytour.example>'

@@ -1,15 +1,26 @@
 import { prisma } from '../lib/prisma.js'
-import { sendBookingEmail } from '../lib/mailer.js'
+import { sendBookingEmail, sendPayOnDepartureRequestEmail } from '../lib/mailer.js'
 import { getDepositRate } from '../lib/booking.js'
+import { getSystemConfig } from '../lib/config.js'
 import { consumeDiscountIfAny } from '../lib/discount.js'
 import { buildPaymentUrl, isVnpayConfigured, verifyReturn } from '../lib/vnpay.js'
+
+// "Trả sau khi đi tour" — thay cho COD. Giữ 'COD' làm bí danh tương thích dữ liệu cũ.
+const isDeferred = (m) => m === 'PAY_ON_DEPARTURE' || m === 'COD'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:4000'
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173'
 
-// BR-43: tối thiểu 2 phương thức (COD + cổng online sandbox).
+// Cấu hình thanh toán công khai: VNPAY + "Trả sau khi đi tour" (thay COD).
 export async function paymentConfig(req, res) {
-  res.json({ vnpayEnabled: isVnpayConfigured(), codEnabled: true, depositRate: await getDepositRate() })
+  const cfg = await getSystemConfig()
+  res.json({
+    vnpayEnabled: isVnpayConfigured(),
+    codEnabled: true, // tương thích cũ
+    payOnDepartureEnabled: true,
+    payOnDepartureMinHours: cfg.payOnDepartureMinHours || 48,
+    depositRate: await getDepositRate(),
+  })
 }
 
 // Thông tin thanh toán tối thiểu của một đơn (dùng cho trang kết quả).
@@ -59,16 +70,25 @@ async function markDeposited(booking, method, transactionId, moneyReceived = tru
       },
     }),
   ])
-  // BR-47: chỉ trừ lượt mã giảm giá khi tiền thực nhận (VNPAY ngay; COD khi admin xác nhận).
+  // BR-47: chỉ trừ lượt mã giảm giá khi tiền thực nhận (VNPAY ngay; trả sau khi admin xác nhận).
   if (moneyReceived) await consumeDiscountIfAny(booking)
-  sendBookingEmail(booking.guestEmail, {
-    code: booking.code,
-    pin: null,
-    productName: '(đơn ' + booking.code + ')',
-    totalPrice: booking.totalPrice,
-    depositAmount: booking.depositAmount,
-    remainingAmount: booking.remainingAmount,
-  }).catch((e) => console.error('Gửi email xác nhận cọc thất bại:', e))
+  if (!moneyReceived) {
+    // Trả sau khi đi tour: gửi "đã nhận yêu cầu, điều hành sẽ liên hệ xác nhận".
+    sendPayOnDepartureRequestEmail(booking.guestEmail, {
+      code: booking.code,
+      productName: '(đơn ' + booking.code + ')',
+      payable: Math.max(0, booking.totalPrice - (booking.discountAmount || 0)),
+    }).catch((e) => console.error('Gửi email tiếp nhận trả-sau thất bại:', e))
+  } else {
+    sendBookingEmail(booking.guestEmail, {
+      code: booking.code,
+      pin: null,
+      productName: '(đơn ' + booking.code + ')',
+      totalPrice: booking.totalPrice,
+      depositAmount: booking.depositAmount,
+      remainingAmount: booking.remainingAmount,
+    }).catch((e) => console.error('Gửi email xác nhận cọc thất bại:', e))
+  }
 }
 
 // UC-11 – Tạo yêu cầu thanh toán cọc. method = COD | VNPAY.
@@ -90,10 +110,21 @@ export async function createPayment(req, res, next) {
       return res.status(410).json({ message: 'Hết thời gian giữ chỗ. Vui lòng đặt lại.', code: 'HOLD_EXPIRED' })
     }
 
-    if (method === 'COD') {
-      // Thu tay: giữ chỗ nhưng tiền CHƯA nhận — admin xác nhận khi thực thu.
-      await markDeposited(booking, 'COD', null, false)
-      return res.json({ status: 'success', method: 'COD', booking: { code: booking.code, status: 'DEPOSITED' } })
+    if (isDeferred(method)) {
+      // "Trả sau khi đi tour": giữ chỗ, TIỀN CHƯA NHẬN; điều hành gọi xác nhận, HDV thu khi đi.
+      // Chặn nếu quá sát ngày đi/checkin (còn < payOnDepartureMinHours giờ) -> buộc thanh toán online.
+      const cfg = await getSystemConfig()
+      if (booking.checkIn) {
+        const hoursLeft = (new Date(booking.checkIn).getTime() - Date.now()) / 3600000
+        if (hoursLeft < (cfg.payOnDepartureMinHours || 48)) {
+          return res.status(400).json({
+            message: `Chỉ áp dụng "Trả sau khi đi tour" khi còn ít nhất ${cfg.payOnDepartureMinHours} giờ tới ngày đi. Vui lòng thanh toán qua VNPAY.`,
+            code: 'TOO_LATE',
+          })
+        }
+      }
+      await markDeposited(booking, 'PAY_ON_DEPARTURE', null, false)
+      return res.json({ status: 'success', method: 'PAY_ON_DEPARTURE', booking: { code: booking.code, status: 'DEPOSITED' } })
     }
 
     if (method === 'VNPAY') {

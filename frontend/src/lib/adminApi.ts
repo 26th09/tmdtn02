@@ -520,6 +520,7 @@ export interface AdminSystemConfig {
   vatPercent: number
   fullPaymentHoursBeforeStart: number
   codDueDays: number
+  payOnDepartureMinHours: number
   sellerName: string | null
   sellerAddress: string | null
   sellerPhone: string | null

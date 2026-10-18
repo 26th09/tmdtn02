@@ -150,7 +150,8 @@ model SystemConfig {
   // Tài chính
   vatPercent                  Int @default(8) // % thuế GTGT để tách doanh thu (cấu hình được)
   fullPaymentHoursBeforeStart Int @default(1) // phải thanh toán đủ trước X giờ so với ngày đi/checkin
-  codDueDays                  Int @default(7) // thu tay (COD): phải thanh toán trong X ngày kể từ khi đặt
+  codDueDays                  Int @default(7) // thu tay: phải thanh toán trong X ngày kể từ khi đặt
+  payOnDepartureMinHours      Int @default(48) // chỉ cho "Trả sau khi đi tour" nếu còn >= X giờ tới ngày đi/checkin
 
   sellerName         String?  @default("StayTour")
   sellerAddress      String?

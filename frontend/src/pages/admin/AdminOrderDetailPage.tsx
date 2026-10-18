@@ -137,7 +137,7 @@ export function AdminOrderDetailPage() {
         <div className="rounded-xl border border-slate-800 bg-slate-950 p-5">
           <h2 className="mb-3 font-semibold text-slate-200">Thanh toán & tài chính</h2>
           <dl className="space-y-1 text-sm">
-            <Row label="Phương thức" value={order.paymentMethod === 'COD' ? 'Thu tay (COD)' : order.paymentMethod || '-'} />
+            <Row label="Phương thức" value={order.paymentMethod === 'PAY_ON_DEPARTURE' || order.paymentMethod === 'COD' ? 'Trả sau khi đi tour' : order.paymentMethod || '-'} />
             <Row
               label="Trạng thái TT"
               value={order.paymentState === 'PAID' ? '✅ Đã thanh toán đủ' : order.paymentState === 'PARTIAL' ? '🟡 Thanh toán 1 phần' : '⚪ Chưa thanh toán'}
