@@ -453,8 +453,9 @@ export const api = {
     discountCode?: string
     note?: string
   }) => post<BookingResult>('/api/bookings/tour', data),
-  getPaymentConfig: () => get<{ vnpayEnabled: boolean; codEnabled: boolean; depositRate: number }>('/api/payments/config'),
-  createPayment: (code: string, method: 'COD' | 'VNPAY') =>
+  getPaymentConfig: () =>
+    get<{ vnpayEnabled: boolean; codEnabled: boolean; payOnDepartureEnabled: boolean; payOnDepartureMinHours: number; depositRate: number }>('/api/payments/config'),
+  createPayment: (code: string, method: 'VNPAY' | 'PAY_ON_DEPARTURE' | 'COD') =>
     post<{ status: string; method?: string; redirectUrl?: string; booking?: { code: string; status: string } }>(
       '/api/payments/create',
       { code, method },

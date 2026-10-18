@@ -66,6 +66,7 @@ function ConfigTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
           vatPercent: String(r.config.vatPercent ?? 8),
           fullPaymentHoursBeforeStart: String(r.config.fullPaymentHoursBeforeStart ?? 1),
           codDueDays: String(r.config.codDueDays ?? 7),
+          payOnDepartureMinHours: String(r.config.payOnDepartureMinHours ?? 48),
           sellerName: r.config.sellerName || '',
           sellerAddress: r.config.sellerAddress || '',
           sellerPhone: r.config.sellerPhone || '',
@@ -97,6 +98,7 @@ function ConfigTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
         vatPercent: Number(form.vatPercent),
         fullPaymentHoursBeforeStart: Number(form.fullPaymentHoursBeforeStart),
         codDueDays: Number(form.codDueDays),
+        payOnDepartureMinHours: Number(form.payOnDepartureMinHours),
         sellerName: form.sellerName || undefined,
         sellerAddress: form.sellerAddress || undefined,
         sellerPhone: form.sellerPhone || undefined,
@@ -184,6 +186,10 @@ function ConfigTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
           <label className="flex flex-col gap-1 text-xs text-slate-400">
             Hạn thu tay (ngày)
             <input className={field} type="number" min={1} disabled={!isSuperAdmin} value={form.codDueDays || ''} onChange={(e) => setForm({ ...form, codDueDays: e.target.value })} />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-400">
+            "Trả sau khi đi tour" tối thiểu còn (giờ)
+            <input className={field} type="number" min={0} disabled={!isSuperAdmin} value={form.payOnDepartureMinHours || ''} onChange={(e) => setForm({ ...form, payOnDepartureMinHours: e.target.value })} />
           </label>
         </div>
         <p className="mt-3 text-xs text-slate-500">

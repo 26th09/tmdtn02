@@ -65,6 +65,7 @@ export async function updateConfig(req, res, next) {
       ...(req.body.vatPercent != null && req.body.vatPercent !== '' ? { vatPercent: Number(req.body.vatPercent) } : {}),
       ...(req.body.fullPaymentHoursBeforeStart != null && req.body.fullPaymentHoursBeforeStart !== '' ? { fullPaymentHoursBeforeStart: Number(req.body.fullPaymentHoursBeforeStart) } : {}),
       ...(req.body.codDueDays != null && req.body.codDueDays !== '' ? { codDueDays: Number(req.body.codDueDays) } : {}),
+      ...(req.body.payOnDepartureMinHours != null && req.body.payOnDepartureMinHours !== '' ? { payOnDepartureMinHours: Number(req.body.payOnDepartureMinHours) } : {}),
     }
 
     const config = await prisma.systemConfig.upsert({ where: { id: 1 }, create: { id: 1, ...data }, update: data })

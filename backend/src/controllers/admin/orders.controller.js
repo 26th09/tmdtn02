@@ -1,7 +1,7 @@
 import { prisma } from '../../lib/prisma.js'
 import { logAdminAction } from '../../lib/auditLog.js'
 import { nightsBetween } from '../../lib/booking.js'
-import { sendOrderStatusEmail, sendRefundProcessedEmail } from '../../lib/mailer.js'
+import { sendOrderStatusEmail, sendRefundProcessedEmail, sendTourVoucherEmail } from '../../lib/mailer.js'
 import { paymentState, outstanding, payableTotal, fullPaymentDeadline, codDeadline } from '../../lib/payment.js'
 import { consumeDiscountIfAny } from '../../lib/discount.js'
 
@@ -230,10 +230,20 @@ async function changeBookingStatus(booking, status, adminSub) {
     detail: { from: booking.status, to: status },
   })
 
-  // BR-90: thông báo cho người dùng khi trạng thái đơn thay đổi (gửi nền, không chặn response).
-  sendOrderStatusEmail(booking.guestEmail, { code: booking.code, productName: booking.tour?.title ?? booking.property?.name ?? '', status }).catch(
-    (e) => console.error('Gửi email cập nhật đơn thất bại:', e),
-  )
+  // Đơn "Trả sau khi đi tour" khi được XÁC NHẬN -> gửi voucher/vé điện tử kèm số tiền cần chuẩn bị.
+  const deferred = booking.paymentMethod === 'PAY_ON_DEPARTURE' || booking.paymentMethod === 'COD'
+  if (status === 'CONFIRMED' && deferred) {
+    sendTourVoucherEmail(booking.guestEmail, {
+      code: booking.code,
+      productName: booking.tour?.title ?? booking.property?.name ?? '',
+      payable: Math.max(0, booking.totalPrice - (booking.discountAmount || 0)),
+    }).catch((e) => console.error('Gửi voucher xác nhận thất bại:', e))
+  } else {
+    // BR-90: thông báo cho người dùng khi trạng thái đơn thay đổi (gửi nền, không chặn response).
+    sendOrderStatusEmail(booking.guestEmail, { code: booking.code, productName: booking.tour?.title ?? booking.property?.name ?? '', status }).catch(
+      (e) => console.error('Gửi email cập nhật đơn thất bại:', e),
+    )
+  }
 
   return updated
 }

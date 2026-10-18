@@ -27,7 +27,7 @@ const PAY_COLOR: Record<string, string> = {
   PARTIAL: 'bg-amber-900 text-amber-300',
   UNPAID: 'bg-slate-800 text-slate-400',
 }
-const METHOD_LABEL: Record<string, string> = { VNPAY: 'VNPAY', COD: 'Thu tay', CASH: 'Thu tay' }
+const METHOD_LABEL: Record<string, string> = { VNPAY: 'VNPAY', PAY_ON_DEPARTURE: 'Trả sau khi đi', COD: 'Trả sau khi đi', CASH: 'Trả sau khi đi' }
 const fmtVnd = (n: number) => n.toLocaleString('vi-VN') + '₫'
 
 const field = 'rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none'
