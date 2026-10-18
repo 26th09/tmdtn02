@@ -14,6 +14,9 @@ export function AdminServiceGroupsPage() {
 
   const [newName, setNewName] = useState('')
   const [newParent, setNewParent] = useState<string>('')
+  // Modal nhập tên (thay window.prompt) + modal xác nhận (thay window.confirm).
+  const [prompt, setPrompt] = useState<{ title: string; value: string; placeholder?: string; onSubmit: (v: string) => void } | null>(null)
+  const [confirmBox, setConfirmBox] = useState<{ message: string; onConfirm: () => void } | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -48,40 +51,57 @@ export function AdminServiceGroupsPage() {
     }
   }
 
-  async function rename(g: ServiceGroup) {
-    const name = window.prompt('Tên nhóm mới:', g.name)
-    if (!name || !name.trim()) return
-    try {
-      await adminApi.updateServiceGroup(g.id, { name: name.trim() })
-      load()
-    } catch (err) {
-      setError(err instanceof AdminApiError ? err.message : 'Đổi tên thất bại')
-    }
+  function rename(g: ServiceGroup) {
+    setError(null)
+    setPrompt({
+      title: `Đổi tên nhóm "${g.name}"`,
+      value: g.name,
+      placeholder: 'Tên nhóm',
+      onSubmit: async (name) => {
+        try {
+          await adminApi.updateServiceGroup(g.id, { name })
+          load()
+        } catch (err) {
+          setError(err instanceof AdminApiError ? err.message : 'Đổi tên thất bại')
+        }
+      },
+    })
   }
 
-  async function addChild(parent: ServiceGroup) {
-    const name = window.prompt(`Tên nhóm con trong "${parent.name}":`, '')
-    if (!name || !name.trim()) return
-    try {
-      await adminApi.createServiceGroup({ name: name.trim(), parentId: parent.id })
-      load()
-    } catch (err) {
-      setError(err instanceof AdminApiError ? err.message : 'Tạo nhóm con thất bại')
-    }
+  function addChild(parent: ServiceGroup) {
+    setError(null)
+    setPrompt({
+      title: `Thêm nhóm con trong "${parent.name}"`,
+      value: '',
+      placeholder: 'Tên nhóm con',
+      onSubmit: async (name) => {
+        try {
+          await adminApi.createServiceGroup({ name, parentId: parent.id })
+          load()
+        } catch (err) {
+          setError(err instanceof AdminApiError ? err.message : 'Tạo nhóm con thất bại')
+        }
+      },
+    })
   }
 
-  async function remove(g: ServiceGroup) {
-    if (!window.confirm(`Xóa nhóm "${g.name}"? Nhóm con sẽ trở thành nhóm gốc, các gắn kết sẽ bị gỡ.`)) return
-    try {
-      await adminApi.deleteServiceGroup(g.id)
-      if (selectedId === g.id) {
-        setSelectedId(null)
-        setMembers(null)
-      }
-      load()
-    } catch (err) {
-      setError(err instanceof AdminApiError ? err.message : 'Xóa thất bại')
-    }
+  function remove(g: ServiceGroup) {
+    setError(null)
+    setConfirmBox({
+      message: `Xóa nhóm "${g.name}"? Nhóm con sẽ trở thành nhóm gốc, các gắn kết tour/homestay/bài viết trong nhóm sẽ bị gỡ.`,
+      onConfirm: async () => {
+        try {
+          await adminApi.deleteServiceGroup(g.id)
+          if (selectedId === g.id) {
+            setSelectedId(null)
+            setMembers(null)
+          }
+          load()
+        } catch (err) {
+          setError(err instanceof AdminApiError ? err.message : 'Xóa thất bại')
+        }
+      },
+    })
   }
 
   function renderNode(g: ServiceGroup, depth: number) {
@@ -146,7 +166,80 @@ export function AdminServiceGroupsPage() {
           )}
         </div>
       </div>
+
+      {prompt && (
+        <PromptModal
+          title={prompt.title}
+          initial={prompt.value}
+          placeholder={prompt.placeholder}
+          onCancel={() => setPrompt(null)}
+          onSubmit={(v) => { setPrompt(null); prompt.onSubmit(v) }}
+        />
+      )}
+      {confirmBox && (
+        <ConfirmModal
+          message={confirmBox.message}
+          onCancel={() => setConfirmBox(null)}
+          onConfirm={() => { setConfirmBox(null); confirmBox.onConfirm() }}
+        />
+      )}
     </div>
+  )
+}
+
+// Lớp phủ + hộp thoại nổi dùng chung.
+function ModalShell({ children, onCancel }: { children: React.ReactNode; onCancel: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button type="button" aria-label="Đóng" onClick={onCancel} className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" />
+      <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function PromptModal({ title, initial, placeholder, onCancel, onSubmit }: { title: string; initial: string; placeholder?: string; onCancel: () => void; onSubmit: (v: string) => void }) {
+  const [v, setV] = useState(initial)
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (v.trim()) onSubmit(v.trim())
+  }
+  return (
+    <ModalShell onCancel={onCancel}>
+      <form onSubmit={submit}>
+        <h3 className="mb-4 text-lg font-semibold text-white">{title}</h3>
+        <input
+          autoFocus
+          value={v}
+          onChange={(e) => setV(e.target.value)}
+          placeholder={placeholder}
+          className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+        />
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" onClick={onCancel} className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800">Huỷ</button>
+          <button type="submit" disabled={!v.trim()} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">Lưu</button>
+        </div>
+      </form>
+    </ModalShell>
+  )
+}
+
+function ConfirmModal({ message, onCancel, onConfirm }: { message: string; onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <ModalShell onCancel={onCancel}>
+      <div className="flex items-start gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-500/15 text-xl">⚠️</span>
+        <div>
+          <h3 className="text-lg font-semibold text-white">Xác nhận</h3>
+          <p className="mt-1 text-sm text-slate-300">{message}</p>
+        </div>
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <button type="button" onClick={onCancel} className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800">Huỷ</button>
+        <button type="button" onClick={onConfirm} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Xoá</button>
+      </div>
+    </ModalShell>
   )
 }
 
