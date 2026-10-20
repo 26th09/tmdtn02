@@ -68,6 +68,16 @@ export function BookingPage() {
   const [discountMsg, setDiscountMsg] = useState<string | null>(null)
   const [applyingDiscount, setApplyingDiscount] = useState(false)
 
+  // Hóa đơn điện tử — tùy chọn xuất hóa đơn công ty ở bước đặt.
+  const [wantInvoice, setWantInvoice] = useState(false)
+  const [invTaxCode, setInvTaxCode] = useState('')
+  const [invCompanyName, setInvCompanyName] = useState('')
+  const [invCompanyAddress, setInvCompanyAddress] = useState('')
+  const [invEmail, setInvEmail] = useState('')
+  const [invChecking, setInvChecking] = useState(false)
+  const [invMsg, setInvMsg] = useState<string | null>(null)
+  const [invChecked, setInvChecked] = useState(false)
+
   useEffect(() => {
     if (!slug) return
     Promise.all([api.getBookingConfig(), api.getPaymentConfig()])
@@ -209,6 +219,25 @@ export function BookingPage() {
     }
   }
 
+  // Nút "Kiểm tra" MST ở mục xuất hóa đơn: tự điền tên + địa chỉ công ty.
+  async function checkTaxCode() {
+    const mst = invTaxCode.trim()
+    if (!mst) return
+    setInvChecking(true)
+    setInvMsg(null)
+    try {
+      const r = await api.lookupTaxCode(mst)
+      setInvCompanyName(r.companyName)
+      setInvCompanyAddress(r.companyAddress)
+      setInvChecked(true)
+    } catch (err) {
+      setInvChecked(false)
+      setInvMsg(err instanceof ApiError ? err.message : 'Không tra được mã số thuế. Vui lòng thử lại.')
+    } finally {
+      setInvChecking(false)
+    }
+  }
+
   // Gộp yêu cầu chọn nhanh + giờ đến + ghi chú tự do + "đặt cho người khác" thành một chuỗi note.
   function composedNote() {
     const parts: string[] = []
@@ -240,6 +269,15 @@ export function BookingPage() {
         acceptedTerms: terms,
         discountCode: applied?.code,
         note: composedNote() || undefined,
+        invoice: wantInvoice
+          ? {
+              wantInvoice: true,
+              taxCode: invTaxCode.trim() || undefined,
+              companyName: invCompanyName.trim() || undefined,
+              companyAddress: invCompanyAddress.trim() || undefined,
+              invoiceEmail: invEmail.trim() || email,
+            }
+          : undefined,
       }
       const r = isTour
         ? await api.createTourBooking({ slug: slug!, date, guests, children, ...contact })
@@ -775,6 +813,68 @@ export function BookingPage() {
               </div>
             )}
             {discountMsg && <p className="mt-2 text-sm text-red-600">{discountMsg}</p>}
+          </div>
+
+          {/* Xuất hóa đơn điện tử (tùy chọn) */}
+          <div className="rounded-3xl border border-cream-200 bg-white p-6">
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <input
+                type="checkbox"
+                className="mt-1 accent-forest-700"
+                checked={wantInvoice}
+                onChange={(e) => {
+                  setWantInvoice(e.target.checked)
+                  if (e.target.checked && !invEmail) setInvEmail(email)
+                }}
+              />
+              <span>
+                <span className="font-display text-lg font-semibold text-forest-900">🧾 Xuất hóa đơn điện tử</span>
+                <span className="mt-0.5 block text-sm text-forest-400">
+                  Hóa đơn GTGT sẽ được phát hành và gửi qua email sau khi thanh toán đủ.
+                </span>
+              </span>
+            </label>
+
+            {wantInvoice && (
+              <div className="mt-4 space-y-4 border-t border-cream-100 pt-4">
+                <div>
+                  <label className={lbl}>Mã số thuế <span className="font-normal text-forest-300">(bỏ trống nếu lấy hóa đơn cá nhân)</span></label>
+                  <div className="flex gap-2">
+                    <input
+                      className={`${field} flex-1`}
+                      placeholder="VD: 0312345678"
+                      value={invTaxCode}
+                      onChange={(e) => {
+                        setInvTaxCode(e.target.value.replace(/\D/g, ''))
+                        setInvChecked(false)
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={checkTaxCode}
+                      disabled={invChecking || !invTaxCode.trim()}
+                      className="shrink-0 rounded-xl border border-forest-300 px-5 py-2 text-sm font-medium text-forest-700 hover:bg-forest-50 disabled:opacity-50"
+                    >
+                      {invChecking ? 'Đang tra...' : 'Kiểm tra'}
+                    </button>
+                  </div>
+                  {invMsg && <p className="mt-2 text-sm text-red-600">{invMsg}</p>}
+                  {invChecked && !invMsg && <p className="mt-2 text-sm text-forest-600">✓ Đã tìm thấy thông tin công ty theo MST.</p>}
+                </div>
+                <div>
+                  <label className={lbl}>Tên công ty / người mua</label>
+                  <input className={field} placeholder="Tên đơn vị trên hóa đơn" value={invCompanyName} onChange={(e) => setInvCompanyName(e.target.value)} />
+                </div>
+                <div>
+                  <label className={lbl}>Địa chỉ</label>
+                  <input className={field} placeholder="Địa chỉ xuất hóa đơn" value={invCompanyAddress} onChange={(e) => setInvCompanyAddress(e.target.value)} />
+                </div>
+                <div>
+                  <label className={lbl}>Email nhận hóa đơn</label>
+                  <input className={field} type="email" placeholder={email || 'email@example.com'} value={invEmail} onChange={(e) => setInvEmail(e.target.value)} />
+                </div>
+              </div>
+            )}
           </div>
 
           <label className="flex items-start gap-2.5 text-sm text-forest-600">

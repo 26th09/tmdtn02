@@ -25,6 +25,7 @@ import { AdminGuideFormPage } from './pages/admin/AdminGuideFormPage'
 import { AdminOrdersPage } from './pages/admin/AdminOrdersPage'
 import { AdminOrderDetailPage } from './pages/admin/AdminOrderDetailPage'
 import { AdminInvoicePage } from './pages/admin/AdminInvoicePage'
+import { AdminInvoicesPage } from './pages/admin/AdminInvoicesPage'
 import { AdminPaymentsPage } from './pages/admin/AdminPaymentsPage'
 import { AdminUsersPage } from './pages/admin/AdminUsersPage'
 import { AdminDiscountsPage } from './pages/admin/AdminDiscountsPage'
@@ -94,6 +95,8 @@ function App() {
           <Route path="orders" element={<AdminOrdersPage />} />
           <Route path="orders/:code" element={<AdminOrderDetailPage />} />
           <Route path="orders/:code/invoice" element={<AdminInvoicePage />} />
+          {/* Hóa đơn điện tử (mô phỏng IVAN): liệt kê, phát hành lại, hủy */}
+          <Route path="invoices" element={<AdminInvoicesPage />} />
           {/* UC-19 – Quản lý người dùng & phân quyền */}
           <Route path="users" element={<AdminUsersPage />} />
           {/* UC-20 – Quản lý mã khuyến mại */}

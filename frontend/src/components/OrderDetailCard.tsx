@@ -178,6 +178,9 @@ export function OrderDetailCard({ order, guestAuth, onChanged }: Props) {
           </div>
         </div>
 
+        {/* ── Hóa đơn điện tử ── */}
+        {order.invoice && <InvoiceBlock invoice={order.invoice} />}
+
         {/* ── Chính sách hủy ── */}
         {order.cancellationPolicy && (
           <div className="rounded-2xl border border-cream-200 p-5">
@@ -266,6 +269,48 @@ export function OrderDetailCard({ order, guestAuth, onChanged }: Props) {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// Khối hóa đơn điện tử: trạng thái + nút "Tải hóa đơn" khi đã phát hành.
+function InvoiceBlock({ invoice }: { invoice: NonNullable<OrderDetail['invoice']> }) {
+  const label: Record<string, { text: string; cls: string }> = {
+    PENDING: { text: 'Chờ phát hành (sau khi thanh toán đủ)', cls: 'bg-amber-100 text-amber-700' },
+    PROCESSING: { text: 'Đang phát hành…', cls: 'bg-blue-100 text-blue-700' },
+    ISSUED: { text: 'Đã phát hành', cls: 'bg-emerald-100 text-emerald-700' },
+    FAILED: { text: 'Phát hành lỗi — hệ thống sẽ thử lại', cls: 'bg-red-100 text-red-700' },
+    CANCELED: { text: 'Đã hủy hóa đơn', cls: 'bg-slate-100 text-slate-600' },
+  }
+  const st = label[invoice.status] ?? { text: invoice.status, cls: 'bg-slate-100 text-slate-600' }
+  return (
+    <div className="rounded-2xl border border-cream-200 p-5">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-forest-900">
+          <span className="text-clay-500">🧾</span> Hóa đơn điện tử
+        </h3>
+        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${st.cls}`}>{st.text}</span>
+      </div>
+      <div className="space-y-2 text-sm">
+        {invoice.companyName && <Row label="Bên mua" value={invoice.companyName} />}
+        {invoice.taxCode && <Row label="Mã số thuế" value={invoice.taxCode} />}
+        {invoice.status === 'ISSUED' && invoice.invoiceSerial && (
+          <Row label="Ký hiệu / Số" value={`${invoice.invoiceSerial} · ${invoice.invoiceNumber}`} />
+        )}
+        {invoice.status === 'ISSUED' && invoice.reservationCode && (
+          <Row label="Mã tra cứu" value={invoice.reservationCode} />
+        )}
+      </div>
+      {invoice.status === 'ISSUED' && invoice.pdfUrl && (
+        <a
+          href={invoice.pdfUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-flex items-center gap-2 rounded-full bg-forest-700 px-5 py-2 text-sm font-semibold text-cream-50 transition hover:bg-forest-800"
+        >
+          ⬇ Tải hóa đơn
+        </a>
+      )}
     </div>
   )
 }

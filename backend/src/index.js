@@ -6,6 +6,7 @@ import { isVnpayConfigured } from './lib/vnpay.js'
 import { sweepCompletedBookings } from './lib/booking.js'
 import { sweepAdminPasswordExpiry } from './lib/adminExpiry.js'
 import { sweepPaymentDeadlines } from './lib/paymentSweep.js'
+import { sweepPendingInvoices } from './lib/invoice.js'
 
 const PORT = process.env.PORT || 4000
 
@@ -34,6 +35,17 @@ function startPaymentSweep() {
   setInterval(run, PAY_SWEEP_MINUTES * 60_000)
 }
 
+// Thử phát hành lại hóa đơn còn chờ/đang lỗi (đơn đã thu đủ, tối đa 3 lần). Quét định kỳ.
+const INVOICE_SWEEP_MINUTES = Number(process.env.INVOICE_SWEEP_MINUTES || 10)
+function startInvoiceSweep() {
+  const run = () =>
+    sweepPendingInvoices()
+      .then((r) => { if (r.issued) console.log(`[Hóa đơn sweep] đã phát hành ${r.issued}/${r.checked} hóa đơn còn chờ`) })
+      .catch((e) => console.error('[Hóa đơn sweep] lỗi:', e))
+  setTimeout(run, 25_000)
+  setInterval(run, INVOICE_SWEEP_MINUTES * 60_000)
+}
+
 app.listen(PORT, () => {
   console.log(`Backend đang chạy tại http://localhost:${PORT}`)
   console.log(`  • Email: ${isEmailConfigured() ? 'SMTP (gửi thật)' : 'DEV (log link ra console)'}`)
@@ -42,7 +54,9 @@ app.listen(PORT, () => {
   console.log(`  • Quét đánh giá (UC-15): mỗi ${SWEEP_MINUTES} phút`)
   console.log(`  • Nhắc hạn mật khẩu admin: mỗi ${PWD_SWEEP_HOURS} giờ`)
   console.log(`  • Tự hủy đơn quá hạn thanh toán: mỗi ${PAY_SWEEP_MINUTES} phút`)
+  console.log(`  • Thử phát hành lại hóa đơn: mỗi ${INVOICE_SWEEP_MINUTES} phút`)
   startReviewSweep()
   startAdminPasswordSweep()
   startPaymentSweep()
+  startInvoiceSweep()
 })
