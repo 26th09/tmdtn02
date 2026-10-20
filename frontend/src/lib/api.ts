@@ -431,6 +431,9 @@ export const api = {
   removeFavorite: (productId: number) =>
     request<{ favorited: boolean; productId: number }>(`/api/favorites/${productId}`, { method: 'DELETE' }),
   getBookingConfig: () => get<{ depositRate: number; holdMinutes: number; vatPercent?: number }>('/api/bookings/config'),
+  // Hóa đơn điện tử — tra mã số thuế để tự điền tên/địa chỉ công ty ở bước thanh toán.
+  lookupTaxCode: (taxCode: string) =>
+    post<{ taxCode: string; companyName: string; companyAddress: string }>('/api/invoices/lookup', { taxCode }),
   createHomestayBooking: (data: {
     slug: string
     checkIn: string
@@ -443,6 +446,7 @@ export const api = {
     acceptedTerms: boolean
     discountCode?: string
     note?: string
+    invoice?: BookingInvoiceInput
   }) => post<BookingResult>('/api/bookings/homestay', data),
   createTourBooking: (data: {
     slug: string
@@ -455,6 +459,7 @@ export const api = {
     acceptedTerms: boolean
     discountCode?: string
     note?: string
+    invoice?: BookingInvoiceInput
   }) => post<BookingResult>('/api/bookings/tour', data),
   getPaymentConfig: () =>
     get<{
@@ -539,6 +544,29 @@ export interface OrderSummary {
   createdAt: string
 }
 
+export type InvoiceStatus = 'PENDING' | 'PROCESSING' | 'ISSUED' | 'FAILED' | 'CANCELED'
+
+// Yêu cầu xuất hóa đơn gửi kèm khi đặt đơn.
+export interface BookingInvoiceInput {
+  wantInvoice: boolean
+  taxCode?: string
+  companyName?: string
+  companyAddress?: string
+  invoiceEmail?: string
+}
+
+// Hóa đơn điện tử rút gọn hiển thị cho khách ở "Đơn của tôi"/tra cứu.
+export interface OrderInvoicePublic {
+  status: InvoiceStatus
+  invoiceNumber: string | null
+  invoiceSerial: string | null
+  reservationCode: string | null
+  pdfUrl: string | null
+  companyName: string | null
+  taxCode: string | null
+  issuedAt: string | null
+}
+
 export interface OrderDetail extends OrderSummary {
   guestName: string
   guestEmail: string
@@ -551,6 +579,7 @@ export interface OrderDetail extends OrderSummary {
   cancellationPolicy: string | null
   actions: { canCancel: boolean; canReview: boolean }
   cancelPreview: RefundPreview
+  invoice?: OrderInvoicePublic | null
 }
 
 export interface BookingInfo {

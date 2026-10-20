@@ -55,6 +55,21 @@ function orderSummary(b) {
   }
 }
 
+// Thông tin hóa đơn điện tử rút gọn cho khách (nút "Tải hóa đơn" khi đã phát hành).
+function invoicePublic(inv) {
+  if (!inv) return null
+  return {
+    status: inv.status, // PENDING | PROCESSING | ISSUED | FAILED | CANCELED
+    invoiceNumber: inv.invoiceNumber,
+    invoiceSerial: inv.invoiceSerial,
+    reservationCode: inv.reservationCode,
+    pdfUrl: inv.status === 'ISSUED' ? inv.pdfUrl : null,
+    companyName: inv.companyName,
+    taxCode: inv.taxCode,
+    issuedAt: inv.issuedAt,
+  }
+}
+
 async function orderDetail(b) {
   return {
     ...orderSummary(b),
@@ -62,6 +77,7 @@ async function orderDetail(b) {
     guestEmail: b.guestEmail,
     guestPhone: b.guestPhone,
     note: b.note, // UC-09: ghi chú / yêu cầu đặc biệt của khách
+    invoice: invoicePublic(b.invoice),
 
     discountCode: b.discountCode,
     discountAmount: b.discountAmount,
@@ -95,7 +111,7 @@ export async function getMyOrder(req, res, next) {
   try {
     const booking = await prisma.booking.findUnique({
       where: { code: req.params.code },
-      include: { property: true, tour: true },
+      include: { property: true, tour: true, invoice: true },
     })
     if (!booking || booking.userId !== req.user.sub) {
       // Không tiết lộ đơn có tồn tại hay không — cùng thông báo cho cả 2 trường hợp.
@@ -121,7 +137,7 @@ export async function lookupOrder(req, res, next) {
 
     const booking = await prisma.booking.findUnique({
       where: { code: trimmedCode },
-      include: { property: true, tour: true },
+      include: { property: true, tour: true, invoice: true },
     })
 
     const logAttempt = (success) =>

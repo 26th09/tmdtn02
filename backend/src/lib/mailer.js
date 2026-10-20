@@ -356,6 +356,44 @@ export async function sendAdminPasswordExpiryEmail(to, info) {
   return true
 }
 
+// Hóa đơn điện tử đã phát hành — gửi link tải hóa đơn cho khách.
+export async function sendInvoiceIssuedEmail(to, info) {
+  const from = process.env.MAIL_FROM || 'StayTour <no-reply@staytour.example>'
+  const buyer = info.companyName ? `${info.companyName}${info.taxCode ? ` (MST ${info.taxCode})` : ''}` : 'Quý khách'
+  const html = `
+    <p>Chào ${buyer},</p>
+    <p>Hóa đơn điện tử cho đơn <strong>${info.code}</strong> đã được phát hành thành công:</p>
+    <p><strong>Ký hiệu:</strong> ${info.invoiceSerial} &nbsp;•&nbsp; <strong>Số hóa đơn:</strong> ${info.invoiceNumber}</p>
+    <p><strong>Mã tra cứu:</strong> ${info.reservationCode}</p>
+    <p><a href="${info.pdfUrl}">Xem / tải hóa đơn</a></p>
+    <p>Trân trọng,<br/>Đội ngũ StayTour</p>
+  `
+  if (!transporter) {
+    console.log(`[MAILER dev] Hóa đơn ${info.invoiceSerial}/${info.invoiceNumber} đơn ${info.code} tới ${to}: ${info.pdfUrl}`)
+    return true
+  }
+  await transporter.sendMail({ from, to, subject: `Hóa đơn điện tử đơn ${info.code} — StayTour`, html })
+  return true
+}
+
+// Biên bản hủy/điều chỉnh hóa đơn (mô phỏng) — gửi khi hoàn tiền hoặc admin hủy hóa đơn.
+export async function sendInvoiceCanceledEmail(to, info) {
+  const from = process.env.MAIL_FROM || 'StayTour <no-reply@staytour.example>'
+  const html = `
+    <p>Chào bạn,</p>
+    <p>Hóa đơn điện tử cho đơn <strong>${info.code}</strong>${info.invoiceNumber ? ` (số ${info.invoiceNumber})` : ''} đã được <strong>hủy</strong>.</p>
+    <p>Lý do: ${info.reason || 'điều chỉnh/hoàn tiền'}.</p>
+    <p>Đây là biên bản hủy hóa đơn (mô phỏng). Nếu cần hóa đơn điều chỉnh, vui lòng liên hệ CSKH.</p>
+    <p>Trân trọng,<br/>Đội ngũ StayTour</p>
+  `
+  if (!transporter) {
+    console.log(`[MAILER dev] Hủy hóa đơn đơn ${info.code} (${info.invoiceNumber || '-'}) tới ${to}: ${info.reason || ''}`)
+    return true
+  }
+  await transporter.sendMail({ from, to, subject: `Hủy hóa đơn đơn ${info.code} — StayTour`, html })
+  return true
+}
+
 // Gửi email đặt lại mật khẩu (UC-06 1a).
 export async function sendPasswordResetEmail(to, resetUrl) {
   const from = process.env.MAIL_FROM || 'StayTour <no-reply@staytour.example>'
