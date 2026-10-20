@@ -1,10 +1,11 @@
 # ===================================================================
 # StayTour — Docker Compose: MySQL + Backend (API) + Frontend (web)
 # Chạy tất cả bằng 1 lệnh:  docker compose up -d --build
-# Web khách     : http://localhost:8080
-# Khu vực admin : http://localhost:8080/admin   (admin / Admin@123456)
-# API           : nội bộ, truy cập qua http://localhost:8080/api
+# Web khách     : https://localhost:8443   (http://localhost:8080 tự chuyển sang https)
+# Khu vực admin : https://localhost:8443/admin   (admin / Admin@123456)
+# API           : nội bộ, truy cập qua https://localhost:8443/api
 #                 (nginx chuyển tiếp — không cần mở cổng 4000 ra ngoài)
+# HTTPS dùng chứng chỉ TỰ KÝ (sinh lúc build) -> trình duyệt cảnh báo 1 lần, bấm "Proceed".
 # ===================================================================
 services:
   db:
@@ -60,13 +61,18 @@ services:
     build:
       context: ./frontend
       args:
-        # Để trống = trình duyệt gọi API cùng origin (http://localhost:8080/api),
-        # nginx chuyển tiếp sang backend. Nhờ vậy không phụ thuộc cổng 4000.
+        # Để trống = trình duyệt gọi API cùng origin (nginx chuyển tiếp sang backend).
+        # Nhờ vậy không phụ thuộc cổng 4000 và chạy được trên mọi host.
         VITE_API_URL: ""
+        # Tên/IP hợp lệ trên chứng chỉ tự ký. Mặc định localhost; thêm IP LAN qua .env
+        # gốc để trình duyệt máy khác chấp nhận, vd:
+        #   SSL_SAN=DNS:localhost,IP:127.0.0.1,IP:192.168.1.50
+        SSL_SAN: "${SSL_SAN:-DNS:localhost,IP:127.0.0.1}"
     depends_on:
       - backend
     ports:
-      - "8080:80"
+      - "8080:80"   # HTTP -> tự chuyển hướng sang HTTPS
+      - "8443:443"  # HTTPS (truy cập chính)
     restart: unless-stopped
 
 volumes:
