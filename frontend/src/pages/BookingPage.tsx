@@ -532,11 +532,11 @@ export function BookingPage() {
                   className="flex w-full items-center gap-4 rounded-2xl border-2 border-forest-600 bg-forest-700 px-5 py-4 text-left text-cream-50 transition hover:bg-forest-800 disabled:opacity-50"
                 >
                   <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-cream-50 text-lg font-bold text-forest-700">₫</span>
-                  <span className="flex-1">
+                  <span className="min-w-0 flex-1">
                     <span className="block font-semibold">{paying === 'VNPAY_FULL' ? 'Đang chuyển tới VNPAY...' : 'Thanh toán 100% qua VNPAY'}</span>
                     <span className="block text-xs text-cream-200">Trả đủ một lần — xác nhận & nhận vé ngay</span>
                   </span>
-                  <span className="font-semibold">{formatPrice(payableTotal)}</span>
+                  <span className="shrink-0 whitespace-nowrap font-semibold">{formatPrice(payableTotal)}</span>
                 </button>
               )}
 
@@ -550,13 +550,13 @@ export function BookingPage() {
                   }`}
                 >
                   <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl text-lg font-bold ${b.isPeakSeason ? 'bg-cream-50 text-forest-700' : 'bg-forest-100 text-forest-700'}`}>%</span>
-                  <span className="flex-1">
+                  <span className="min-w-0 flex-1">
                     <span className={`block font-semibold ${b.isPeakSeason ? '' : 'text-forest-900'}`}>
                       {paying === 'VNPAY_DEPOSIT' ? 'Đang chuyển tới VNPAY...' : `Đặt cọc ${Math.round(depositRate * 100)}% qua VNPAY`}
                     </span>
                     <span className={`block text-xs ${b.isPeakSeason ? 'text-cream-200' : 'text-forest-400'}`}>Giữ chỗ trước, trả phần còn lại khi đi/nhận phòng</span>
                   </span>
-                  <span className={`font-semibold ${b.isPeakSeason ? '' : 'text-forest-700'}`}>{formatPrice(b.depositAmount)}</span>
+                  <span className={`shrink-0 whitespace-nowrap font-semibold ${b.isPeakSeason ? '' : 'text-forest-700'}`}>{formatPrice(b.depositAmount)}</span>
                 </button>
               )}
 
@@ -579,7 +579,7 @@ export function BookingPage() {
                       className="flex w-full items-center gap-4 rounded-2xl border-2 border-cream-300 bg-white px-5 py-4 text-left transition hover:border-forest-300 disabled:opacity-50"
                     >
                       <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-forest-100 text-lg">🧳</span>
-                      <span className="flex-1">
+                      <span className="min-w-0 flex-1">
                         <span className="block font-semibold text-forest-900">
                           {paying === 'PAY_ON_DEPARTURE' ? 'Đang xử lý...' : isTour ? 'Trả sau khi đi tour' : 'Trả khi nhận phòng'}
                         </span>
@@ -589,7 +589,7 @@ export function BookingPage() {
                             : 'Không cần trả ngay — trả trực tiếp cho hướng dẫn viên/chủ nhà vào ngày đi. Điều hành sẽ gọi xác nhận.'}
                         </span>
                       </span>
-                      <span className="font-semibold text-forest-700">0₫ ngay</span>
+                      <span className="shrink-0 whitespace-nowrap font-semibold text-forest-700">0₫ ngay</span>
                     </button>
                   </>
                 )
