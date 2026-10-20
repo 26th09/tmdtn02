@@ -517,6 +517,10 @@ export interface AdminSystemConfig {
   cancelTier1Ratio: number
   cancelTier2Days: number
   cancelTier2Ratio: number
+  cancelTier3Days: number
+  cancelTier3Ratio: number
+  vnpayEnabled: boolean
+  payOnDepartureEnabled: boolean
   vatPercent: number
   fullPaymentHoursBeforeStart: number
   codDueDays: number

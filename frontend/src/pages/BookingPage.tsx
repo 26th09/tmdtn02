@@ -29,6 +29,7 @@ export function BookingPage() {
   const [vatPercent, setVatPercent] = useState(8)
   const [vnpayEnabled, setVnpayEnabled] = useState(false)
   const [payOnDepMinHours, setPayOnDepMinHours] = useState(48)
+  const [payOnDepEnabled, setPayOnDepEnabled] = useState(true)
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading')
 
   // Bước thanh toán cọc (UC-11)
@@ -63,6 +64,7 @@ export function BookingPage() {
         setVatPercent(cfg.vatPercent ?? 8)
         setVnpayEnabled(pay.vnpayEnabled)
         setPayOnDepMinHours(pay.payOnDepartureMinHours ?? 48)
+        setPayOnDepEnabled(pay.payOnDepartureEnabled ?? true)
         // Homestay (Property) hay Tour (bảng riêng)? Thử homestay trước, 404 -> tour.
         try {
           const pd = await api.getPropertyDetail(slug)
@@ -419,6 +421,7 @@ export function BookingPage() {
                 </button>
               )}
               {(() => {
+                if (!payOnDepEnabled) return null
                 const startStr = isTour ? date : from
                 const hoursLeft = startStr ? (new Date(startStr).getTime() - Date.now()) / 3600000 : Infinity
                 const allowed = hoursLeft >= payOnDepMinHours

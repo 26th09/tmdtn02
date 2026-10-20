@@ -25,6 +25,7 @@ import { AdminGuideFormPage } from './pages/admin/AdminGuideFormPage'
 import { AdminOrdersPage } from './pages/admin/AdminOrdersPage'
 import { AdminOrderDetailPage } from './pages/admin/AdminOrderDetailPage'
 import { AdminInvoicePage } from './pages/admin/AdminInvoicePage'
+import { AdminPaymentsPage } from './pages/admin/AdminPaymentsPage'
 import { AdminUsersPage } from './pages/admin/AdminUsersPage'
 import { AdminDiscountsPage } from './pages/admin/AdminDiscountsPage'
 import { AdminPromotionsPage } from './pages/admin/AdminPromotionsPage'
@@ -109,6 +110,8 @@ function App() {
           <Route path="contacts" element={<AdminContactsPage />} />
           {/* Nhóm dịch vụ (cây phân cấp) */}
           <Route path="service-groups" element={<AdminServiceGroupsPage />} />
+          {/* Phương thức thanh toán & phí & thuế */}
+          <Route path="payments" element={<AdminPaymentsPage />} />
           {/* UC-23 – Cấu hình hệ thống & nhật ký */}
           <Route path="settings" element={<AdminConfigPage />} />
         </Route>

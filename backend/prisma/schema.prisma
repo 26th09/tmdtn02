@@ -144,8 +144,14 @@ model SystemConfig {
   cancelFreeHours    Int      @default(24) // miễn phí hủy trong X giờ đầu sau khi đặt
   cancelTier1Days    Int      @default(7) // hủy trước >= X ngày so với ngày nhận/khởi hành -> cancelTier1Ratio
   cancelTier1Ratio   Int      @default(100)
-  cancelTier2Days    Int      @default(3) // hủy trước >= X ngày (nhưng < tier1) -> cancelTier2Ratio; dưới X ngày -> 0%
+  cancelTier2Days    Int      @default(3) // hủy trước >= X ngày (nhưng < tier1) -> cancelTier2Ratio
   cancelTier2Ratio   Int      @default(50)
+  cancelTier3Days    Int      @default(1) // hủy trước >= X ngày (nhưng < tier2) -> cancelTier3Ratio; dưới X ngày -> 0%
+  cancelTier3Ratio   Int      @default(20)
+
+  // Phương thức thanh toán (bật/tắt)
+  vnpayEnabled          Boolean @default(true)
+  payOnDepartureEnabled Boolean @default(true)
 
   // Tài chính
   vatPercent                  Int @default(8) // % thuế GTGT để tách doanh thu (cấu hình được)

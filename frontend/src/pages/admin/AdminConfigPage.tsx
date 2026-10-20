@@ -88,22 +88,13 @@ function ConfigTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
     setInfo(null)
     setSubmitting(true)
     try {
+      // Trang này chỉ quản lý thông tin người bán + thông báo. Thanh toán/phí/thuế ở trang riêng.
       await adminApi.updateSystemConfig({
-        depositRatePercent: Number(form.depositRatePercent),
-        cancelFreeHours: Number(form.cancelFreeHours),
-        cancelTier1Days: Number(form.cancelTier1Days),
-        cancelTier1Ratio: Number(form.cancelTier1Ratio),
-        cancelTier2Days: Number(form.cancelTier2Days),
-        cancelTier2Ratio: Number(form.cancelTier2Ratio),
-        vatPercent: Number(form.vatPercent),
-        fullPaymentHoursBeforeStart: Number(form.fullPaymentHoursBeforeStart),
-        codDueDays: Number(form.codDueDays),
-        payOnDepartureMinHours: Number(form.payOnDepartureMinHours),
-        sellerName: form.sellerName || undefined,
-        sellerAddress: form.sellerAddress || undefined,
-        sellerPhone: form.sellerPhone || undefined,
-        sellerEmail: form.sellerEmail || undefined,
-        siteNotice: form.siteNotice || undefined,
+        sellerName: form.sellerName || '',
+        sellerAddress: form.sellerAddress || '',
+        sellerPhone: form.sellerPhone || '',
+        sellerEmail: form.sellerEmail || '',
+        siteNotice: form.siteNotice || '',
       })
       setInfo('Đã lưu cấu hình. Thay đổi áp dụng cho các đơn/giao dịch phát sinh từ bây giờ trở đi.')
       load()
@@ -127,75 +118,10 @@ function ConfigTab({ isSuperAdmin }: { isSuperAdmin: boolean }) {
       {info && <div className="rounded-lg border border-emerald-800 bg-emerald-950/40 px-4 py-2 text-sm text-emerald-300">{info}</div>}
       {error && <div className="rounded-lg border border-red-800 bg-red-950/40 px-4 py-2 text-sm text-red-300">⚠️ {error}</div>}
 
-      <section className="rounded-xl border border-slate-800 bg-slate-950 p-5">
-        <h2 className="mb-3 font-semibold text-slate-200">Tỷ lệ đặt cọc (BR-113)</h2>
-        <label className="flex w-48 flex-col gap-1 text-xs text-slate-400">
-          Tỷ lệ cọc (%)
-          <input
-            className={field}
-            type="number"
-            min={1}
-            max={100}
-            disabled={!isSuperAdmin}
-            value={form.depositRatePercent || ''}
-            onChange={(e) => setForm({ ...form, depositRatePercent: e.target.value })}
-          />
-        </label>
-      </section>
+      <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-400">
+        Tỷ lệ cọc, phí hủy theo ngày, thuế VAT và phương thức thanh toán đã chuyển sang trang <a href="/admin/payments" className="text-emerald-400 hover:underline">Phương thức thanh toán &amp; phí</a>.
+      </div>
 
-      <section className="rounded-xl border border-slate-800 bg-slate-950 p-5">
-        <h2 className="mb-3 font-semibold text-slate-200">Chính sách hủy & hoàn tiền (BR-114)</h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
-            Miễn phí hủy trong (giờ)
-            <input className={field} type="number" min={0} disabled={!isSuperAdmin} value={form.cancelFreeHours || ''} onChange={(e) => setForm({ ...form, cancelFreeHours: e.target.value })} />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
-            Mốc mức 1 (ngày trước ngày nhận/khởi hành)
-            <input className={field} type="number" min={0} disabled={!isSuperAdmin} value={form.cancelTier1Days || ''} onChange={(e) => setForm({ ...form, cancelTier1Days: e.target.value })} />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
-            Tỷ lệ hoàn mức 1 (%)
-            <input className={field} type="number" min={0} max={100} disabled={!isSuperAdmin} value={form.cancelTier1Ratio || ''} onChange={(e) => setForm({ ...form, cancelTier1Ratio: e.target.value })} />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
-            Mốc mức 2 (ngày)
-            <input className={field} type="number" min={0} disabled={!isSuperAdmin} value={form.cancelTier2Days || ''} onChange={(e) => setForm({ ...form, cancelTier2Days: e.target.value })} />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
-            Tỷ lệ hoàn mức 2 (%)
-            <input className={field} type="number" min={0} max={100} disabled={!isSuperAdmin} value={form.cancelTier2Ratio || ''} onChange={(e) => setForm({ ...form, cancelTier2Ratio: e.target.value })} />
-          </label>
-        </div>
-        <p className="mt-3 text-xs text-slate-500">
-          Dưới mốc mức 2: không hoàn tiền. Thay đổi chỉ áp dụng cho các đơn/giao dịch phát sinh sau khi lưu (BR-115), không hồi tố các đơn đã tạo.
-        </p>
-      </section>
-
-      <section className="rounded-xl border border-slate-800 bg-slate-950 p-5">
-        <h2 className="mb-3 font-semibold text-slate-200">Tài chính</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
-            Thuế GTGT / VAT (%)
-            <input className={field} type="number" min={0} max={100} disabled={!isSuperAdmin} value={form.vatPercent || ''} onChange={(e) => setForm({ ...form, vatPercent: e.target.value })} />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
-            Hạn trả đủ trước giờ đi/checkin (giờ)
-            <input className={field} type="number" min={0} disabled={!isSuperAdmin} value={form.fullPaymentHoursBeforeStart || ''} onChange={(e) => setForm({ ...form, fullPaymentHoursBeforeStart: e.target.value })} />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
-            Hạn thu tay (ngày)
-            <input className={field} type="number" min={1} disabled={!isSuperAdmin} value={form.codDueDays || ''} onChange={(e) => setForm({ ...form, codDueDays: e.target.value })} />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
-            "Trả sau khi đi tour" tối thiểu còn (giờ)
-            <input className={field} type="number" min={0} disabled={!isSuperAdmin} value={form.payOnDepartureMinHours || ''} onChange={(e) => setForm({ ...form, payOnDepartureMinHours: e.target.value })} />
-          </label>
-        </div>
-        <p className="mt-3 text-xs text-slate-500">
-          VAT dùng để tách doanh thu "sau thuế" và "thuế" trong báo cáo. Đơn chưa trả đủ trước giờ đi/checkin, hoặc thu tay quá hạn, sẽ bị tự hủy và hoàn tồn kho (chính sách bắt buộc). Mức hoàn tiền áp theo các mốc hủy ở trên.
-        </p>
-      </section>
 
       <section className="rounded-xl border border-slate-800 bg-slate-950 p-5">
         <h2 className="mb-3 font-semibold text-slate-200">Thông tin người bán</h2>
