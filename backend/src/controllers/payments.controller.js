@@ -15,9 +15,9 @@ const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173'
 export async function paymentConfig(req, res) {
   const cfg = await getSystemConfig()
   res.json({
-    vnpayEnabled: isVnpayConfigured(),
-    codEnabled: true, // tương thích cũ
-    payOnDepartureEnabled: true,
+    vnpayEnabled: isVnpayConfigured() && cfg.vnpayEnabled !== false,
+    codEnabled: cfg.payOnDepartureEnabled !== false, // tương thích cũ
+    payOnDepartureEnabled: cfg.payOnDepartureEnabled !== false,
     payOnDepartureMinHours: cfg.payOnDepartureMinHours || 48,
     depositRate: await getDepositRate(),
   })
@@ -112,8 +112,11 @@ export async function createPayment(req, res, next) {
 
     if (isDeferred(method)) {
       // "Trả sau khi đi tour": giữ chỗ, TIỀN CHƯA NHẬN; điều hành gọi xác nhận, HDV thu khi đi.
-      // Chặn nếu quá sát ngày đi/checkin (còn < payOnDepartureMinHours giờ) -> buộc thanh toán online.
       const cfg = await getSystemConfig()
+      if (cfg.payOnDepartureEnabled === false) {
+        return res.status(400).json({ message: 'Phương thức "Trả sau khi đi tour" hiện đang tắt. Vui lòng thanh toán qua VNPAY.' })
+      }
+      // Chặn nếu quá sát ngày đi/checkin (còn < payOnDepartureMinHours giờ) -> buộc thanh toán online.
       if (booking.checkIn) {
         const hoursLeft = (new Date(booking.checkIn).getTime() - Date.now()) / 3600000
         if (hoursLeft < (cfg.payOnDepartureMinHours || 48)) {
@@ -130,6 +133,9 @@ export async function createPayment(req, res, next) {
     if (method === 'VNPAY') {
       if (!isVnpayConfigured()) {
         return res.status(400).json({ message: 'Cổng VNPAY chưa được cấu hình trên máy chủ' })
+      }
+      if ((await getSystemConfig()).vnpayEnabled === false) {
+        return res.status(400).json({ message: 'Phương thức VNPAY hiện đang tắt.' })
       }
       const txnRef = `${booking.id}T${Date.now().toString().slice(-8)}`
       const redirectUrl = buildPaymentUrl({

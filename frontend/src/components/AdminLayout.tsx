@@ -34,6 +34,7 @@ const NAV_GROUPS: { title: string; items: { to: string; label: string; icon: str
       { to: '/admin/reports', label: 'Báo cáo & thống kê', icon: '📊' },
       { to: '/admin/users', label: 'Người dùng', icon: '☺' },
       { to: '/admin/admins', label: 'Tài khoản quản trị', icon: '🔑', superOnly: true },
+      { to: '/admin/payments', label: 'Phương thức thanh toán & phí', icon: '💳' },
       { to: '/admin/settings', label: 'Cấu hình hệ thống', icon: '⚙' },
     ],
   },
@@ -53,6 +54,7 @@ const TITLES: { prefix: string; label: string }[] = [
   { prefix: '/admin/reports', label: 'Báo cáo & thống kê' },
   { prefix: '/admin/users', label: 'Quản lý người dùng' },
   { prefix: '/admin/admins', label: 'Quản lý tài khoản quản trị' },
+  { prefix: '/admin/payments', label: 'Phương thức thanh toán & phí' },
   { prefix: '/admin/settings', label: 'Cấu hình hệ thống' },
 ]
 

@@ -13,32 +13,33 @@ export async function getConfig(req, res, next) {
 }
 
 // 3a: tỷ lệ ngoài khoảng cho phép, hoặc các mốc thời gian mâu thuẫn.
+const has = (v) => v != null && v !== ''
+// Chỉ kiểm tra các trường ĐƯỢC GỬI (cho phép lưu từng phần từ nhiều trang cấu hình).
 function validatePayload(body) {
-  const deposit = Number(body.depositRatePercent)
-  if (!Number.isInteger(deposit) || deposit < 1 || deposit > 100) {
-    return 'Tỷ lệ đặt cọc phải là số nguyên từ 1 đến 100'
+  if (has(body.depositRatePercent)) {
+    const deposit = Number(body.depositRatePercent)
+    if (!Number.isInteger(deposit) || deposit < 1 || deposit > 100) return 'Tỷ lệ đặt cọc phải là số nguyên từ 1 đến 100'
   }
-
-  const freeHours = Number(body.cancelFreeHours)
-  if (!Number.isInteger(freeHours) || freeHours < 0) return 'Số giờ miễn phí hủy không hợp lệ'
-
-  const tier1Days = Number(body.cancelTier1Days)
-  const tier2Days = Number(body.cancelTier2Days)
-  if (!Number.isInteger(tier1Days) || tier1Days < 0) return 'Mốc ngày (mức 1) không hợp lệ'
-  if (!Number.isInteger(tier2Days) || tier2Days < 0) return 'Mốc ngày (mức 2) không hợp lệ'
-  if (tier2Days >= tier1Days) return 'Mốc ngày (mức 2) phải nhỏ hơn mốc ngày (mức 1) — các mốc thời gian mâu thuẫn' // 3a
-
-  const tier1Ratio = Number(body.cancelTier1Ratio)
-  const tier2Ratio = Number(body.cancelTier2Ratio)
-  if (!Number.isInteger(tier1Ratio) || tier1Ratio < 0 || tier1Ratio > 100) return 'Tỷ lệ hoàn (mức 1) phải từ 0 đến 100'
-  if (!Number.isInteger(tier2Ratio) || tier2Ratio < 0 || tier2Ratio > 100) return 'Tỷ lệ hoàn (mức 2) phải từ 0 đến 100'
-  if (tier2Ratio > tier1Ratio) return 'Tỷ lệ hoàn (mức 2) không được lớn hơn tỷ lệ hoàn (mức 1)'
-
+  if (has(body.cancelFreeHours)) {
+    const freeHours = Number(body.cancelFreeHours)
+    if (!Number.isInteger(freeHours) || freeHours < 0) return 'Số giờ miễn phí hủy không hợp lệ'
+  }
+  if (has(body.cancelTier1Days) && has(body.cancelTier2Days)) {
+    const t1 = Number(body.cancelTier1Days)
+    const t2 = Number(body.cancelTier2Days)
+    if (t2 >= t1) return 'Mốc ngày (mức 2) phải nhỏ hơn mốc ngày (mức 1)'
+  }
+  if (has(body.cancelTier1Ratio) && has(body.cancelTier2Ratio)) {
+    if (Number(body.cancelTier2Ratio) > Number(body.cancelTier1Ratio)) return 'Tỷ lệ hoàn (mức 2) không được lớn hơn mức 1'
+  }
   if (body.sellerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(body.sellerEmail))) {
     return 'Email người bán không hợp lệ'
   }
   return null
 }
+const numField = (b, k) => (has(b[k]) ? { [k]: Number(b[k]) } : {})
+const strField = (b, k) => (b[k] !== undefined ? { [k]: b[k] || null } : {})
+const boolField = (b, k) => (b[k] != null ? { [k]: Boolean(b[k]) } : {})
 
 // UC-23 (3) – Cập nhật cấu hình hệ thống.
 // BR-115: không hồi tố — chỉ ảnh hưởng đơn/giao dịch phát sinh SAU thời điểm cập nhật, vì mọi nơi
@@ -49,23 +50,18 @@ export async function updateConfig(req, res, next) {
     const issue = validatePayload(req.body)
     if (issue) return res.status(400).json({ message: issue }) // 3a
 
+    const b = req.body
     const data = {
-      depositRatePercent: Number(req.body.depositRatePercent),
-      cancelFreeHours: Number(req.body.cancelFreeHours),
-      cancelTier1Days: Number(req.body.cancelTier1Days),
-      cancelTier1Ratio: Number(req.body.cancelTier1Ratio),
-      cancelTier2Days: Number(req.body.cancelTier2Days),
-      cancelTier2Ratio: Number(req.body.cancelTier2Ratio),
-      sellerName: req.body.sellerName || null,
-      sellerAddress: req.body.sellerAddress || null,
-      sellerPhone: req.body.sellerPhone || null,
-      sellerEmail: req.body.sellerEmail || null,
-      siteNotice: req.body.siteNotice || null,
-      // Tài chính (chỉ cập nhật khi được gửi).
-      ...(req.body.vatPercent != null && req.body.vatPercent !== '' ? { vatPercent: Number(req.body.vatPercent) } : {}),
-      ...(req.body.fullPaymentHoursBeforeStart != null && req.body.fullPaymentHoursBeforeStart !== '' ? { fullPaymentHoursBeforeStart: Number(req.body.fullPaymentHoursBeforeStart) } : {}),
-      ...(req.body.codDueDays != null && req.body.codDueDays !== '' ? { codDueDays: Number(req.body.codDueDays) } : {}),
-      ...(req.body.payOnDepartureMinHours != null && req.body.payOnDepartureMinHours !== '' ? { payOnDepartureMinHours: Number(req.body.payOnDepartureMinHours) } : {}),
+      ...numField(b, 'depositRatePercent'),
+      ...numField(b, 'cancelFreeHours'),
+      ...numField(b, 'cancelTier1Days'), ...numField(b, 'cancelTier1Ratio'),
+      ...numField(b, 'cancelTier2Days'), ...numField(b, 'cancelTier2Ratio'),
+      ...numField(b, 'cancelTier3Days'), ...numField(b, 'cancelTier3Ratio'),
+      ...boolField(b, 'vnpayEnabled'), ...boolField(b, 'payOnDepartureEnabled'),
+      ...numField(b, 'vatPercent'), ...numField(b, 'fullPaymentHoursBeforeStart'),
+      ...numField(b, 'codDueDays'), ...numField(b, 'payOnDepartureMinHours'),
+      ...strField(b, 'sellerName'), ...strField(b, 'sellerAddress'),
+      ...strField(b, 'sellerPhone'), ...strField(b, 'sellerEmail'), ...strField(b, 'siteNotice'),
     }
 
     const config = await prisma.systemConfig.upsert({ where: { id: 1 }, create: { id: 1, ...data }, update: data })

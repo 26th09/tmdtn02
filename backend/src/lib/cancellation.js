@@ -32,7 +32,8 @@ async function resolvePolicy(booking) {
     tiers: [
       { days: cfg.cancelTier1Days, rate: cfg.cancelTier1Ratio },
       { days: cfg.cancelTier2Days, rate: cfg.cancelTier2Ratio },
-    ],
+      { days: cfg.cancelTier3Days, rate: cfg.cancelTier3Ratio },
+    ].sort((a, b) => b.days - a.days),
   }
 }
 
