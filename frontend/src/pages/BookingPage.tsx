@@ -446,12 +446,30 @@ export function BookingPage() {
               </div>
             )}
 
-            {/* Chính sách hủy */}
+            {/* Chính sách hủy & hoàn tiền — trình bày dạng danh sách có biểu tượng/màu theo mức hoàn */}
             {detail?.product.cancellationPolicy && (
-              <details className="mt-3 rounded-xl border border-cream-200 px-4 py-3 text-sm">
-                <summary className="cursor-pointer font-medium text-forest-700">🛈 Chính sách hủy &amp; hoàn tiền</summary>
-                <p className="mt-2 leading-relaxed text-forest-400">{detail.product.cancellationPolicy}</p>
-              </details>
+              <div className="mt-3 overflow-hidden rounded-2xl border border-cream-200">
+                <div className="flex items-center gap-2 bg-forest-50 px-4 py-2.5 text-sm font-semibold text-forest-800">
+                  <span>🛡️</span> Chính sách hủy &amp; hoàn tiền
+                </div>
+                <ul className="divide-y divide-cream-100">
+                  {detail.product.cancellationPolicy
+                    .split(/(?<=\.)\s+/)
+                    .map((s) => s.trim())
+                    .filter(Boolean)
+                    .map((line, i) => {
+                      const kind = /không hoàn/i.test(line) ? 'none' : /hoàn/i.test(line) ? 'yes' : 'free'
+                      const icon = kind === 'none' ? '✕' : kind === 'yes' ? '✓' : '⏱'
+                      const color = kind === 'none' ? 'text-red-500' : kind === 'yes' ? 'text-forest-600' : 'text-clay-500'
+                      return (
+                        <li key={i} className="flex items-start gap-2.5 px-4 py-2.5 text-sm text-forest-600">
+                          <span className={`mt-px shrink-0 font-bold ${color}`}>{icon}</span>
+                          <span>{line}</span>
+                        </li>
+                      )
+                    })}
+                </ul>
+              </div>
             )}
           </div>
         </div>
@@ -535,17 +553,10 @@ export function BookingPage() {
                       </span>
                       <span className="font-semibold text-forest-700">0₫ ngay</span>
                     </button>
-                    <p className="rounded-xl bg-clay-50 px-3 py-2 text-xs text-clay-600">
-                      ⚠ Lưu ý: Hủy không báo trước 24h có thể khiến bạn bị hạn chế đặt chỗ{stripeEnabled ? ' hoặc bị thu phí no-show trên thẻ đã giữ' : ''}. Vui lòng giữ liên lạc.
-                    </p>
                   </>
                 )
               })()}
             </div>
-            <p className="mt-3 flex items-center gap-1.5 text-xs text-forest-400">
-              🔒 VNPAY sandbox{stripeEnabled ? ' · Stripe test mode' : ''} — không dùng thẻ thật.
-              {!vnpayEnabled && ' Hiện chưa cấu hình VNPAY.'}
-            </p>
 
             {showStripe && (
               <StripePayLaterModal
