@@ -37,9 +37,12 @@ services:
       ADMIN_JWT_SECRET: "doi_thanh_chuoi_ngau_nhien_khac"
       ADMIN_JWT_EXPIRES_IN: "8h"
       PORT: "4000"
-      CLIENT_URL: "http://localhost:8080"
+      # URL công khai của web. Mặc định localhost:8080 (chỉ máy chủ dùng được).
+      # Để người dùng máy KHÁC (LAN) dùng FULL tính năng — nhất là VNPAY chuyển hướng về —
+      # đặt PUBLIC_URL trong file .env ở gốc repo, ví dụ: PUBLIC_URL=http://192.168.1.50:8080
+      CLIENT_URL: "${PUBLIC_URL:-http://localhost:8080}"
       # Trình duyệt truy cập API/ảnh qua cổng web 8080 (nginx chuyển tiếp).
-      BACKEND_URL: "http://localhost:8080"
+      BACKEND_URL: "${PUBLIC_URL:-http://localhost:8080}"
       SEED_ADMIN_USERNAME: "admin"
       SEED_ADMIN_PASSWORD: "Admin@123456"
     depends_on:
