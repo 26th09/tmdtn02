@@ -30,9 +30,10 @@ export async function createPreAuthIntent({ amount, metadata }) {
     amount,
     currency: 'vnd',
     capture_method: 'manual', // giữ tiền, chưa trừ
-    // Chỉ dùng THẺ: form gọn (số thẻ/ngày/CVC), bỏ ví Link (Email/SĐT/tên) -> hết cảnh báo
-    // "biểu mẫu không dùng kết nối bảo mật" và không bị tràn chiều cao.
-    payment_method_types: ['card'],
+    // Dùng automatic_payment_methods (payment_method_types đã bị bản Stripe mới loại bỏ).
+    // allow_redirects:'never' để không rời trang. Cảnh báo "kết nối không bảo mật" được
+    // xử lý bằng cách phục vụ web qua HTTPS (xem docker-compose/nginx).
+    automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
     metadata: metadata || {},
   })
 }

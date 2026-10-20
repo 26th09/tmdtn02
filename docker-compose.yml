@@ -32,6 +32,9 @@ services:
       - path: ./backend/.env
         required: false
     environment:
+      # Múi giờ VN: để VNPAY nhận đúng giờ tạo/hết hạn giao dịch (nếu không, container UTC
+      # khiến vnp_ExpireDate lệch 7h về quá khứ -> "giao dịch đã quá thời gian chờ").
+      TZ: "Asia/Ho_Chi_Minh"
       DATABASE_URL: "mysql://root:staytour123@db:3306/tmdt"
       JWT_SECRET: "doi_thanh_chuoi_ngau_nhien_cua_ban"
       JWT_EXPIRES_IN: "7d"
