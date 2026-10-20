@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { CategoryMenu } from './CategoryMenu'
 import { useAuth } from '../lib/auth'
+import { api, ApiError } from '../lib/api'
 
 export function Layout() {
   const { user, logout } = useAuth()
@@ -254,16 +255,7 @@ export function Layout() {
             <div>
               <h4 className="font-display text-lg text-cream-50">Nhận ưu đãi</h4>
               <p className="mt-4 text-sm text-cream-200">Đăng ký để nhận những chương trình khuyến mại mới nhất.</p>
-              <form className="mt-4 flex overflow-hidden rounded-full bg-cream-50" onSubmit={(e) => e.preventDefault()}>
-                <input
-                  type="email"
-                  placeholder="Email của bạn"
-                  className="min-w-0 flex-1 bg-transparent px-4 py-2.5 text-sm text-forest-900 placeholder:text-forest-400 focus:outline-none"
-                />
-                <button className="bg-clay-500 px-5 text-sm font-medium text-white transition hover:bg-clay-600">
-                  Gửi
-                </button>
-              </form>
+              <NewsletterForm />
             </div>
           </div>
 
@@ -273,5 +265,54 @@ export function Layout() {
         </div>
       </footer>
     </div>
+  )
+}
+
+// Ô đăng ký nhận email khuyến mãi ở footer: gửi email lên /api/newsletter/subscribe,
+// lưu vào danh sách (quản lý trong CSKH) và gửi email chào mừng cho khách.
+function NewsletterForm() {
+  const [email, setEmail] = useState('')
+  const [status, setStatus] = useState<'idle' | 'sending' | 'ok' | 'error'>('idle')
+  const [message, setMessage] = useState('')
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!email.trim() || status === 'sending') return
+    setStatus('sending')
+    setMessage('')
+    try {
+      const r = await api.subscribeNewsletter(email.trim())
+      setStatus('ok')
+      setMessage(r.message)
+      setEmail('')
+    } catch (err) {
+      setStatus('error')
+      setMessage(err instanceof ApiError ? err.message : 'Đăng ký thất bại, vui lòng thử lại.')
+    }
+  }
+
+  return (
+    <form className="mt-4" onSubmit={submit}>
+      <div className="flex overflow-hidden rounded-full bg-cream-50">
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email của bạn"
+          className="min-w-0 flex-1 bg-transparent px-4 py-2.5 text-sm text-forest-900 placeholder:text-forest-400 focus:outline-none"
+        />
+        <button
+          type="submit"
+          disabled={status === 'sending'}
+          className="bg-clay-500 px-5 text-sm font-medium text-white transition hover:bg-clay-600 disabled:opacity-60"
+        >
+          {status === 'sending' ? '...' : 'Gửi'}
+        </button>
+      </div>
+      {message && (
+        <p className={`mt-2 text-xs ${status === 'ok' ? 'text-emerald-300' : 'text-red-300'}`}>{message}</p>
+      )}
+    </form>
   )
 }

@@ -444,6 +444,16 @@ export const adminApi = {
     return res.json() as Promise<{ reply: ContactReply }>
   },
 
+  // Đăng ký nhận ưu đãi (quản lý trong mục Chăm sóc khách hàng)
+  listSubscribers: (params: { status?: string } = {}) => {
+    const qs = new URLSearchParams()
+    if (params.status) qs.set('status', params.status)
+    return get<{ items: NewsletterSubscriber[]; counts: SubscriberCounts }>(`/api/admin/newsletter?${qs.toString()}`)
+  },
+  setSubscriberStatus: (id: number, status: string) =>
+    patchReq<{ item: NewsletterSubscriber }>(`/api/admin/newsletter/${id}/status`, { status }),
+  deleteSubscriber: (id: number) => del<{ ok: boolean }>(`/api/admin/newsletter/${id}`),
+
   // UC-22 – Báo cáo & thống kê
   getReports: (params: { from?: string; to?: string } = {}) => {
     const qs = new URLSearchParams()
@@ -597,6 +607,19 @@ export interface ContactCounts {
   unread: number
   total: number
   replied: number
+}
+
+export interface NewsletterSubscriber {
+  id: number
+  email: string
+  status: 'SUBSCRIBED' | 'UNSUBSCRIBED'
+  source: string | null
+  createdAt: string
+  unsubscribedAt: string | null
+}
+export interface SubscriberCounts {
+  subscribed: number
+  total: number
 }
 
 export interface ServiceGroup {

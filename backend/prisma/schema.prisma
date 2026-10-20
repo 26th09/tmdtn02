@@ -1011,6 +1011,24 @@ model ContactReply {
   @@index([messageId])
 }
 
+enum NewsletterStatus {
+  SUBSCRIBED // đang nhận ưu đãi
+  UNSUBSCRIBED // đã hủy nhận
+}
+
+// Đăng ký nhận email khuyến mãi/ưu đãi từ ô ở footer trang khách. Quản lý trong mục CSKH.
+model NewsletterSubscriber {
+  id             Int              @id @default(autoincrement())
+  email          String           @unique
+  status         NewsletterStatus @default(SUBSCRIBED)
+  source         String?          @default("footer") // nơi đăng ký (footer, popup...)
+  createdAt      DateTime         @default(now())
+  unsubscribedAt DateTime?
+
+  @@index([status])
+  @@index([createdAt])
+}
+
 // ---- Nhóm dịch vụ (cây phân cấp theo địa lý/chủ đề): gom tour + homestay + bài viết ----
 // Dùng cho khuyến mãi, tìm kiếm/lọc và báo cáo doanh thu theo nhóm. Một dịch vụ thuộc nhiều nhóm (M2M).
 model ServiceGroup {

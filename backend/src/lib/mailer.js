@@ -260,6 +260,27 @@ export async function sendContactReplyEmail(to, info) {
   return true
 }
 
+// Đăng ký nhận ưu đãi (ô ở footer trang khách): email chào mừng/xác nhận đã đăng ký.
+export async function sendPromoSubscribeEmail(to) {
+  const from = process.env.MAIL_FROM || 'StayTour <no-reply@staytour.example>'
+  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173'
+  const html = `
+    <p>Chào bạn,</p>
+    <p>Cảm ơn bạn đã đăng ký nhận ưu đãi từ <strong>StayTour</strong>! 🎉</p>
+    <p>Từ giờ, bạn sẽ là người đầu tiên nhận được các chương trình khuyến mại, mã giảm giá
+       và gợi ý hành trình mới nhất của chúng tôi qua email này.</p>
+    <p><a href="${clientUrl}">Khám phá homestay & tour ngay</a></p>
+    <p>Nếu bạn không muốn nhận email nữa, chỉ cần phản hồi email này để chúng tôi hủy đăng ký.</p>
+    <p>Trân trọng,<br/>Đội ngũ StayTour</p>
+  `
+  if (!transporter) {
+    console.log(`[MAILER dev] Chào mừng đăng ký nhận ưu đãi tới ${to}`)
+    return true
+  }
+  await transporter.sendMail({ from, to, subject: 'Chào mừng bạn đến với ưu đãi StayTour! 🎉', html })
+  return true
+}
+
 // ---- Bảo mật tài khoản quản trị ----
 
 // Gửi thông tin tài khoản + liên kết kích hoạt cho admin mới (do SUPER_ADMIN tạo từ hệ thống).

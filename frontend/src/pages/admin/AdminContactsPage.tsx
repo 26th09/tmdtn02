@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AdminApiError, adminApi, type ContactCounts, type ContactMessage, type ContactReply } from '../../lib/adminApi'
+import {
+  AdminApiError,
+  adminApi,
+  type ContactCounts,
+  type ContactMessage,
+  type ContactReply,
+  type NewsletterSubscriber,
+  type SubscriberCounts,
+} from '../../lib/adminApi'
 
 const field = 'rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none'
 const TYPE_LABEL: Record<string, string> = { CUSTOMER: 'Khách hàng', PARTNER: 'Đối tác' }
@@ -7,7 +15,7 @@ const STATUS_LABEL: Record<string, string> = { UNREAD: 'Chưa đọc', READ: 'Đ
 const fmt = (s: string) => new Date(s).toLocaleString('vi-VN')
 
 export function AdminContactsPage() {
-  const [tab, setTab] = useState<'inbox' | 'sent'>('inbox')
+  const [tab, setTab] = useState<'inbox' | 'sent' | 'subscribers'>('inbox')
   const [filter, setFilter] = useState('INBOX') // INBOX | UNREAD | READ | REPLIED | ''
   const [items, setItems] = useState<ContactMessage[]>([])
   const [counts, setCounts] = useState<ContactCounts>({ unread: 0, total: 0, replied: 0 })
@@ -31,7 +39,7 @@ export function AdminContactsPage() {
 
   useEffect(() => {
     if (tab === 'inbox') load()
-    else adminApi.listSentReplies().then((r) => setSent(r.items)).catch(() => setError('Không tải được mục đã gửi'))
+    else if (tab === 'sent') adminApi.listSentReplies().then((r) => setSent(r.items)).catch(() => setError('Không tải được mục đã gửi'))
   }, [tab, load])
 
   async function open(id: number) {
@@ -59,12 +67,15 @@ export function AdminContactsPage() {
       <div className="mb-4 flex gap-2 border-b border-slate-800">
         <TabBtn active={tab === 'inbox'} onClick={() => { setTab('inbox'); setSelected(null) }}>Hộp thư{counts.unread ? ` (${counts.unread})` : ''}</TabBtn>
         <TabBtn active={tab === 'sent'} onClick={() => { setTab('sent'); setSelected(null) }}>Đã gửi</TabBtn>
+        <TabBtn active={tab === 'subscribers'} onClick={() => { setTab('subscribers'); setSelected(null) }}>Đăng ký nhận ưu đãi</TabBtn>
       </div>
 
       {error && <div className="mb-4 rounded-lg border border-red-800 bg-red-950/40 px-4 py-2 text-sm text-red-300">⚠️ {error}</div>}
       {msg && <div className="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/40 px-4 py-2 text-sm text-emerald-300">{msg}</div>}
 
-      {tab === 'sent' ? (
+      {tab === 'subscribers' ? (
+        <SubscribersList onError={(e) => setError(e)} onMsg={(m) => setMsg(m)} />
+      ) : tab === 'sent' ? (
         <SentList items={sent} />
       ) : (
         <div className="grid gap-4 lg:grid-cols-[1fr_1.3fr]">
@@ -264,6 +275,128 @@ function SentList({ items }: { items: ContactReply[] }) {
           )}
         </div>
       ))}
+    </div>
+  )
+}
+
+function SubscribersList({ onError, onMsg }: { onError: (e: string) => void; onMsg: (m: string) => void }) {
+  const [items, setItems] = useState<NewsletterSubscriber[]>([])
+  const [counts, setCounts] = useState<SubscriberCounts>({ subscribed: 0, total: 0 })
+  const [filter, setFilter] = useState('') // '' | SUBSCRIBED | UNSUBSCRIBED
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(() => {
+    setLoading(true)
+    adminApi
+      .listSubscribers({ status: filter || undefined })
+      .then((r) => {
+        setItems(r.items)
+        setCounts(r.counts)
+      })
+      .catch(() => onError('Không tải được danh sách đăng ký'))
+      .finally(() => setLoading(false))
+  }, [filter, onError])
+
+  useEffect(() => { load() }, [load])
+
+  async function toggle(s: NewsletterSubscriber) {
+    const next = s.status === 'SUBSCRIBED' ? 'UNSUBSCRIBED' : 'SUBSCRIBED'
+    try {
+      await adminApi.setSubscriberStatus(s.id, next)
+      onMsg(next === 'UNSUBSCRIBED' ? '✓ Đã hủy nhận ưu đãi.' : '✓ Đã khôi phục nhận ưu đãi.')
+      load()
+    } catch {
+      onError('Không đổi được trạng thái')
+    }
+  }
+
+  async function remove(s: NewsletterSubscriber) {
+    if (!window.confirm(`Xóa ${s.email} khỏi danh sách nhận ưu đãi?`)) return
+    try {
+      await adminApi.deleteSubscriber(s.id)
+      onMsg('✓ Đã xóa khỏi danh sách.')
+      load()
+    } catch {
+      onError('Không xóa được')
+    }
+  }
+
+  function exportCsv() {
+    const header = 'Email,Trạng thái,Nguồn,Ngày đăng ký\n'
+    const rows = items
+      .map((s) => `${s.email},${s.status === 'SUBSCRIBED' ? 'Đang nhận' : 'Đã hủy'},${s.source || ''},${fmt(s.createdAt)}`)
+      .join('\n')
+    const blob = new Blob(['﻿' + header + rows], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `dang-ky-nhan-uu-dai-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <select value={filter} onChange={(e) => setFilter(e.target.value)} className={field}>
+          <option value="">Tất cả ({counts.total})</option>
+          <option value="SUBSCRIBED">Đang nhận ({counts.subscribed})</option>
+          <option value="UNSUBSCRIBED">Đã hủy</option>
+        </select>
+        <span className="text-sm text-slate-400">
+          {counts.subscribed} đang nhận · {counts.total} tổng
+        </span>
+        {items.length > 0 && (
+          <button onClick={exportCsv} className="ml-auto rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800">
+            ⬇ Xuất CSV
+          </button>
+        )}
+      </div>
+
+      {loading ? (
+        <p className="text-slate-500">Đang tải...</p>
+      ) : items.length === 0 ? (
+        <p className="text-slate-500">Chưa có ai đăng ký nhận ưu đãi.</p>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-slate-800">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-900 text-left text-xs uppercase text-slate-500">
+              <tr>
+                <th className="px-4 py-2.5">Email</th>
+                <th className="px-4 py-2.5">Trạng thái</th>
+                <th className="px-4 py-2.5">Ngày đăng ký</th>
+                <th className="px-4 py-2.5 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {items.map((s) => (
+                <tr key={s.id} className="bg-slate-950">
+                  <td className="px-4 py-2.5">
+                    <a href={`mailto:${s.email}`} className="text-emerald-400 hover:underline">{s.email}</a>
+                    {s.source && <span className="ml-2 text-xs text-slate-600">({s.source})</span>}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {s.status === 'SUBSCRIBED' ? (
+                      <span className="rounded bg-emerald-950 px-2 py-0.5 text-xs text-emerald-300">Đang nhận</span>
+                    ) : (
+                      <span className="rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-400">Đã hủy</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-slate-400">{fmt(s.createdAt)}</td>
+                  <td className="px-4 py-2.5 text-right">
+                    <button onClick={() => toggle(s)} className="rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800">
+                      {s.status === 'SUBSCRIBED' ? 'Hủy nhận' : 'Khôi phục'}
+                    </button>
+                    <button onClick={() => remove(s)} className="ml-2 rounded-lg border border-red-900 px-2.5 py-1 text-xs text-red-300 hover:bg-red-950">
+                      Xóa
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

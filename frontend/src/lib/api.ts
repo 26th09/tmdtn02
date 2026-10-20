@@ -355,6 +355,9 @@ export const api = {
   // Liên hệ / CSKH (công khai)
   submitContact: (body: { type: 'CUSTOMER' | 'PARTNER'; name: string; email: string; phone?: string; subject?: string; body: string }) =>
     post<{ message: string }>('/api/contact', body),
+  // Đăng ký nhận email khuyến mãi (ô ở footer trang khách)
+  subscribeNewsletter: (email: string, source?: string) =>
+    post<{ message: string }>('/api/newsletter/subscribe', { email, source }),
   getCategories: (type?: ProductType) =>
     get<{ categories: Category[] }>(`/api/catalog/categories${type ? `?type=${type}` : ''}`),
   getProducts: (params: { categorySlug?: string; type?: ProductType; location?: string }) => {
