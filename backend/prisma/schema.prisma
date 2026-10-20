@@ -1005,6 +1005,7 @@ model ContactMessage {
   phone     String?
   subject   String?
   body      String         @db.Text
+  bookingCode String? // tham chiếu đơn khách đã đặt (luồng hỗ trợ đơn)
   status    ContactStatus  @default(UNREAD)
   readAt    DateTime?
   repliedAt DateTime?

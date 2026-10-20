@@ -7,7 +7,10 @@ const lbl = 'mb-1.5 block text-sm font-medium text-forest-700'
 
 // Trang liên hệ công khai: khách hàng / đối tác gửi yêu cầu, bộ phận CSKH trả lời qua email.
 export function ContactPage() {
+  // 2 luồng: 'inquiry' (hỏi thông tin chung) · 'booking' (đã đặt, cần hỗ trợ đơn).
+  const [flow, setFlow] = useState<'inquiry' | 'booking'>('inquiry')
   const [type, setType] = useState<'CUSTOMER' | 'PARTNER'>('CUSTOMER')
+  const [bookingCode, setBookingCode] = useState('')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -24,9 +27,17 @@ export function ContactPage() {
       setError('Vui lòng nhập họ tên, email và nội dung')
       return
     }
+    if (flow === 'booking' && !bookingCode.trim()) {
+      setError('Vui lòng nhập mã đơn hàng bạn đã đặt')
+      return
+    }
     setSubmitting(true)
     try {
-      const r = await api.submitContact({ type, name, email, phone: phone || undefined, subject: subject || undefined, body })
+      const r = await api.submitContact({
+        type: flow === 'booking' ? 'CUSTOMER' : type,
+        name, email, phone: phone || undefined, subject: subject || undefined, body,
+        bookingCode: flow === 'booking' ? bookingCode.trim() : undefined,
+      })
       setDone(r.message)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Gửi liên hệ thất bại. Vui lòng thử lại.')
@@ -52,24 +63,52 @@ export function ContactPage() {
         Khách hàng cần hỗ trợ hay đối tác muốn hợp tác — gửi thông tin bên dưới, bộ phận CSKH sẽ phản hồi qua email sớm nhất.
       </p>
 
-      <form onSubmit={submit} className="mt-8 space-y-4 rounded-3xl border border-cream-200 bg-white p-6">
-        <div>
-          <span className={lbl}>Bạn là</span>
-          <div className="flex flex-wrap gap-2">
-            {([['CUSTOMER', 'Khách hàng'], ['PARTNER', 'Đối tác']] as const).map(([v, l]) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setType(v)}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
-                  type === v ? 'bg-forest-700 text-cream-50' : 'bg-cream-100 text-forest-600 hover:bg-cream-200'
-                }`}
-              >
-                {l}
-              </button>
-            ))}
+      {/* Chọn luồng CSKH */}
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        {([
+          ['inquiry', '💬 Hỏi thông tin', 'Tư vấn tour/homestay, hợp tác, câu hỏi chung.'],
+          ['booking', '🧾 Hỗ trợ đơn đã đặt', 'Bạn đã đặt tour/phòng và cần hỗ trợ — có mã đơn.'],
+        ] as const).map(([v, title, desc]) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setFlow(v)}
+            className={`rounded-2xl border-2 px-5 py-4 text-left transition ${
+              flow === v ? 'border-forest-600 bg-forest-50' : 'border-cream-200 bg-white hover:border-forest-300'
+            }`}
+          >
+            <span className="block font-display text-lg font-semibold text-forest-900">{title}</span>
+            <span className="mt-0.5 block text-sm text-forest-400">{desc}</span>
+          </button>
+        ))}
+      </div>
+
+      <form onSubmit={submit} className="mt-6 space-y-4 rounded-3xl border border-cream-200 bg-white p-6">
+        {flow === 'booking' ? (
+          <div>
+            <label className={lbl}>Mã đơn hàng <span className="text-clay-500">*</span></label>
+            <input className={`${field} font-mono uppercase`} value={bookingCode} onChange={(e) => setBookingCode(e.target.value.toUpperCase())} placeholder="VD: TR123456789" />
+            <p className="mt-1 text-xs text-forest-400">Mã đơn có trong email xác nhận đặt chỗ. Yêu cầu của bạn sẽ được gắn với đơn này để CSKH hỗ trợ nhanh hơn.</p>
           </div>
-        </div>
+        ) : (
+          <div>
+            <span className={lbl}>Bạn là</span>
+            <div className="flex flex-wrap gap-2">
+              {([['CUSTOMER', 'Khách hàng'], ['PARTNER', 'Đối tác']] as const).map(([v, l]) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setType(v)}
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                    type === v ? 'bg-forest-700 text-cream-50' : 'bg-cream-100 text-forest-600 hover:bg-cream-200'
+                  }`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div>
           <label className={lbl}>Họ và tên <span className="text-clay-500">*</span></label>
           <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="Nguyễn Văn A" />
