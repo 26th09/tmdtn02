@@ -19,6 +19,7 @@ export function AdminHomestayFormPage() {
   const fileInput = useRef<HTMLInputElement>(null)
 
   const [f, setF] = useState({ ...empty })
+  const [peakSeason, setPeakSeason] = useState(false) // Luồng 3: mùa cao điểm
   const [provinceName, setProvinceName] = useState('')
   const [areaName, setAreaName] = useState('')
   const [amenityIds, setAmenityIds] = useState<number[]>([])
@@ -52,6 +53,7 @@ export function AdminHomestayFormPage() {
       cancellationPolicyId: p.cancellationPolicyId != null ? String(p.cancellationPolicyId) : '', contactPhone: p.contactPhone ?? '', contactEmail: p.contactEmail ?? '',
       metaTitle: p.metaTitle ?? '', metaDescription: p.metaDescription ?? '', houseRules: (p.policies ?? []).map((x) => x.content).join('\n'),
     })
+    setPeakSeason(Boolean(p.isPeakSeason))
     setProvinceName(p.province?.name ?? '')
     setAreaName(p.area?.name ?? '')
     setAmenityIds((p.amenities ?? []).map((a) => a.amenity.id))
@@ -66,7 +68,7 @@ export function AdminHomestayFormPage() {
       starRating: f.starRating || undefined, shortDescription: f.shortDescription || undefined, description: f.description || undefined,
       provinceId: provinceId ?? undefined, areaId: areaId ?? undefined, address: f.address || undefined,
       latitude: f.latitude || undefined, longitude: f.longitude || undefined, checkInTime: f.checkInTime || undefined, checkOutTime: f.checkOutTime || undefined,
-      basePrice: Number(f.basePrice), depositRate: f.depositRate || undefined, cancellationPolicyId: f.cancellationPolicyId || undefined,
+      basePrice: Number(f.basePrice), depositRate: f.depositRate || undefined, isPeakSeason: peakSeason, cancellationPolicyId: f.cancellationPolicyId || undefined,
       contactPhone: f.contactPhone || undefined, contactEmail: f.contactEmail || undefined, metaTitle: f.metaTitle || undefined, metaDescription: f.metaDescription || undefined,
       amenityIds,
       policies: f.houseRules.split('\n').map((s) => s.trim()).filter(Boolean).map((content) => ({ type: 'HOUSE_RULE', content })),
@@ -153,6 +155,12 @@ export function AdminHomestayFormPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div><label className={label}>Giá tham khảo (VNĐ) *</label><input className={field} type="number" min={0} value={f.basePrice} onChange={(e) => set('basePrice', e.target.value)} required /></div>
             <div><label className={label}>Tỷ lệ cọc (%)</label><input className={field} type="number" min={1} max={100} value={f.depositRate} onChange={(e) => set('depositRate', e.target.value)} placeholder="Theo cấu hình hệ thống" /></div>
+            <div className="flex items-end">
+              <label className="flex cursor-pointer items-center gap-2 pb-2 text-sm text-slate-200">
+                <input type="checkbox" checked={peakSeason} onChange={(e) => setPeakSeason(e.target.checked)} className="h-4 w-4 accent-emerald-500" />
+                🔥 Mùa cao điểm (ẩn "Trả sau", buộc đặt cọc)
+              </label>
+            </div>
             <div><label className={label}>Chính sách hủy</label>
               <select className={field} value={f.cancellationPolicyId} onChange={(e) => set('cancellationPolicyId', e.target.value)}>
                 <option value="">— Mặc định —</option>{meta.policies.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}

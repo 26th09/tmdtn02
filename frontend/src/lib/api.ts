@@ -457,11 +457,27 @@ export const api = {
     note?: string
   }) => post<BookingResult>('/api/bookings/tour', data),
   getPaymentConfig: () =>
-    get<{ vnpayEnabled: boolean; codEnabled: boolean; payOnDepartureEnabled: boolean; payOnDepartureMinHours: number; depositRate: number }>('/api/payments/config'),
-  createPayment: (code: string, method: 'VNPAY' | 'PAY_ON_DEPARTURE' | 'COD') =>
-    post<{ status: string; method?: string; redirectUrl?: string; booking?: { code: string; status: string } }>(
+    get<{
+      vnpayEnabled: boolean
+      stripeEnabled: boolean
+      stripePublishableKey: string | null
+      codEnabled: boolean
+      payOnDepartureEnabled: boolean
+      payOnDepartureMinHours: number
+      depositRate: number
+    }>('/api/payments/config'),
+  createPayment: (code: string, method: 'VNPAY' | 'PAY_ON_DEPARTURE' | 'COD', payType?: 'FULL' | 'DEPOSIT') =>
+    post<{ status: string; method?: string; paymentStatus?: string; redirectUrl?: string; payType?: string; amount?: number; booking?: { code: string; status: string } }>(
       '/api/payments/create',
-      { code, method },
+      { code, method, payType },
+    ),
+  // Luồng 1 — Stripe pre-authorization (giữ thẻ bảo lãnh)
+  createStripePreAuth: (code: string) =>
+    post<{ clientSecret: string; publishableKey: string; amount: number }>('/api/payments/stripe/pre-auth', { code }),
+  confirmStripePreAuth: (code: string, paymentIntentId: string) =>
+    post<{ status: string; method?: string; paymentStatus?: string; booking?: { code: string; status: string } }>(
+      '/api/payments/stripe/confirm',
+      { code, paymentIntentId },
     ),
   applyDiscount: (data: { code: string; type: ProductType; subtotal: number; slug: string }) =>
     post<{ applied: boolean; code?: string; discount?: number; newTotal?: number; message?: string }>(
@@ -472,10 +488,13 @@ export const api = {
     get<{
       code: string
       status: string
+      paymentStatus: 'UNPAID' | 'AUTHORIZED' | 'PARTIALLY_PAID' | 'PAID' | 'REFUNDED'
       paymentMethod: string | null
       totalPrice: number
       depositAmount: number
       remainingAmount: number
+      paidAmount: number
+      cardAuthAmount: number | null
       productName: string
     }>(`/api/payments/status/${encodeURIComponent(code)}`),
   getMyOrders: () => get<{ orders: OrderSummary[] }>('/api/orders/my'),
@@ -555,6 +574,7 @@ export interface BookingInfo {
   depositAmount: number
   remainingAmount: number
   heldUntil: string | null
+  isPeakSeason?: boolean // Luồng 3: mùa cao điểm -> ẩn "Trả sau", buộc đặt cọc
   createdAt: string
 }
 

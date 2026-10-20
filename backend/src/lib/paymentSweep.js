@@ -62,8 +62,10 @@ export async function sweepPaymentDeadlines() {
   for (const b of candidates) {
     const payable = payableTotal(b)
     const paid = b.paidAmount || 0
-    // 1) Thu tay nhưng chưa nhận được tiền và đã quá hạn COD.
-    if (b.paymentMethod === 'COD' && paid <= 0) {
+    // Luồng 1 — đã GIỮ THẺ bảo lãnh (Stripe pre-auth): thanh toán khi đi/nhận phòng, KHÔNG tự hủy.
+    if (b.paymentStatus === 'AUTHORIZED') continue
+    // 1) Trả sau / thu tay nhưng chưa nhận được tiền và đã quá hạn.
+    if ((b.paymentMethod === 'COD' || b.paymentMethod === 'PAY_ON_DEPARTURE') && paid <= 0) {
       const due = await codDeadline(b, cfg)
       if (due && due < now) {
         await cancelForNonPayment(b, 'thu tay quá hạn chưa thanh toán')

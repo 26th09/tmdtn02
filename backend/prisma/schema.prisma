@@ -218,11 +218,20 @@ enum BookingType {
 }
 
 enum BookingStatus {
-  PENDING_DEPOSIT // chờ cọc (đang giữ chỗ tạm)
-  DEPOSITED // đã cọc
-  CONFIRMED // đã xác nhận
+  PENDING_DEPOSIT // chờ thanh toán/cọc (đang giữ chỗ tạm)
+  DEPOSITED // đã cọc một phần (Luồng 3)
+  CONFIRMED // đã xác nhận (đã trả đủ Luồng 2, hoặc đã giữ thẻ bảo lãnh Luồng 1)
   COMPLETED // hoàn tất
   CANCELLED // đã hủy
+}
+
+// Trạng thái TIỀN của đơn, tách biệt khỏi vòng đời đơn (BookingStatus).
+enum PaymentStatus {
+  UNPAID // chưa thanh toán
+  AUTHORIZED // đã giữ thẻ bảo lãnh (pre-auth), chưa trừ tiền — Luồng 1 Trả sau
+  PARTIALLY_PAID // đã cọc một phần — Luồng 3
+  PAID // đã thanh toán đủ — Luồng 2
+  REFUNDED // đã hoàn tiền
 }
 
 model Booking {
@@ -266,9 +275,15 @@ model Booking {
   paidAmount      Int @default(0) // tổng tiền ĐÃ NHẬN thực tế (COD/thu tay chỉ cộng khi admin xác nhận)
 
   // UC-11 – Thanh toán & đặt cọc
-  paymentMethod String? // VNPAY | COD
+  paymentStatus PaymentStatus @default(UNPAID) // trạng thái TIỀN, tách khỏi status đơn
+  paymentMethod String? // VNPAY | STRIPE | PAY_ON_DEPARTURE | COD
   transactionId String? // mã giao dịch của cổng (BR-42)
   depositPaidAt DateTime?
+
+  // Luồng 1 — Stripe pre-authorization (giữ thẻ bảo lãnh chống bùng, không trừ tiền)
+  stripePaymentIntentId String?
+  cardAuthAmount        Int? // số tiền tạm giữ trên thẻ
+  cardAuthStatus        String? // REQUIRES_CAPTURE | CAPTURED | CANCELED
 
   // UC-12 – Mã giảm giá (BR-44: chỉ một mã/đơn)
   discountCode      String?
@@ -356,9 +371,10 @@ model Payment {
   id            Int      @id @default(autoincrement())
   bookingId     Int
   booking       Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  method        String // VNPAY | COD
+  method        String // VNPAY | STRIPE | PAY_ON_DEPARTURE | COD
+  kind          String   @default("CHARGE") // CHARGE (thu tiền) | AUTH (giữ thẻ bảo lãnh)
   amount        Int
-  status        String // SUCCESS | FAILED | PENDING
+  status        String // SUCCESS | FAILED | PENDING | AUTHORIZED
   transactionId String?
   createdAt     DateTime @default(now())
 
@@ -596,6 +612,7 @@ model Tour {
   guideLanguage        String? // [Mở rộng] ngôn ngữ hướng dẫn
   basePrice            Int // giá tham khảo (từ mức thấp nhất)
   depositRate          Int? // % cọc riêng; null = lấy từ cấu hình UC-23 (BR-113)
+  isPeakSeason         Boolean     @default(false) // Mùa cao điểm: ẩn "Trả sau", buộc đặt cọc trước (Luồng 3)
   cancellationPolicyId Int?
   cancellationPolicy   CancellationPolicy? @relation(fields: [cancellationPolicyId], references: [id])
   avgRating            Float       @default(0)
@@ -732,6 +749,7 @@ model Property {
   checkOutTime         String? // giờ trả phòng "12:00"
   basePrice            Int // giá tham khảo (mức thấp nhất)
   depositRate          Int? // % cọc riêng; null = cấu hình UC-23 (BR-113)
+  isPeakSeason         Boolean        @default(false) // Mùa cao điểm: ẩn "Trả sau", buộc đặt cọc trước (Luồng 3)
   cancellationPolicyId Int?
   cancellationPolicy   CancellationPolicy? @relation(fields: [cancellationPolicyId], references: [id])
   avgRating            Float          @default(0)

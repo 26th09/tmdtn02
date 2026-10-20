@@ -6,8 +6,52 @@ import { api, formatPrice } from '../lib/api'
 
 const PAYMENT_LABEL: Record<string, string> = {
   VNPAY: 'VNPAY',
+  STRIPE: 'Thẻ (giữ bảo lãnh)',
+  PAY_ON_DEPARTURE: 'Trả sau khi đi/nhận phòng',
   COD: 'Thanh toán khi nhận',
   CASH: 'Tiền mặt',
+}
+
+// Nhãn/nội dung màn thành công theo TRẠNG THÁI TIỀN (tách khỏi trạng thái đơn), đúng cho cả 3 luồng.
+function successView(info: { paymentStatus: string; depositAmount: number; remainingAmount: number; totalPrice: number; cardAuthAmount: number | null } | null) {
+  const ps = info?.paymentStatus
+  if (ps === 'PAID') {
+    return {
+      title: 'Thanh toán thành công',
+      desc: 'Đơn của bạn đã được xác nhận và thanh toán đủ. Cảm ơn bạn đã đặt chỗ cùng StayTour!',
+      highlightLabel: 'Đã thanh toán',
+      highlightValue: info!.totalPrice,
+      showRemaining: false,
+    }
+  }
+  if (ps === 'PARTIALLY_PAID') {
+    return {
+      title: 'Đặt cọc thành công',
+      desc: 'Đơn của bạn đã được xác nhận. Cảm ơn bạn đã đặt cọc giữ chỗ!',
+      highlightLabel: 'Đã đặt cọc',
+      highlightValue: info!.depositAmount,
+      showRemaining: true,
+    }
+  }
+  if (ps === 'AUTHORIZED') {
+    return {
+      title: 'Đặt chỗ thành công',
+      desc: 'Đã giữ thẻ bảo lãnh để giữ chỗ — thẻ của bạn CHƯA bị trừ tiền. Bạn thanh toán khi đi/nhận phòng.',
+      highlightLabel: 'Đã giữ thẻ bảo lãnh',
+      highlightValue: info?.cardAuthAmount ?? 0,
+      showRemaining: false,
+      payLater: true,
+    }
+  }
+  // UNPAID (trả sau, chưa giữ thẻ) — KHÔNG hiển thị "đã cọc".
+  return {
+    title: 'Đặt chỗ thành công',
+    desc: 'Đơn của bạn đã được xác nhận. Vui lòng thanh toán khi đi/nhận phòng.',
+    highlightLabel: 'Thanh toán khi đi/nhận phòng',
+    highlightValue: info ? info.totalPrice : 0,
+    showRemaining: false,
+    payLater: true,
+  }
 }
 
 // Trang kết quả sau khi VNPAY chuyển hướng về (?code=&status=success|failed|invalid).
@@ -34,10 +78,11 @@ export function PaymentResultPage() {
 
   const ok = statusParam === 'success'
   const invalid = statusParam === 'invalid'
+  const sv = ok ? successView(info) : null
 
-  const title = ok ? 'Đặt cọc thành công' : invalid ? 'Chữ ký không hợp lệ' : 'Thanh toán không thành công'
+  const title = ok ? sv!.title : invalid ? 'Chữ ký không hợp lệ' : 'Thanh toán không thành công'
   const desc = ok
-    ? 'Đơn của bạn đã được xác nhận. Cảm ơn bạn đã đặt chỗ cùng StayTour!'
+    ? sv!.desc
     : invalid
       ? 'Kết quả trả về không xác thực được (nghi ngờ giả mạo). Giao dịch đã bị từ chối.'
       : 'Giao dịch bị hủy hoặc thất bại. Bạn có thể thử lại trong thời hạn giữ chỗ.'
@@ -82,12 +127,13 @@ export function PaymentResultPage() {
                 <Row label="Phương thức" value={PAYMENT_LABEL[info.paymentMethod] ?? info.paymentMethod} />
               )}
               <Row label="Tổng tiền" value={formatPrice(info.totalPrice)} />
-              <Row label="Còn lại (trả sau)" value={formatPrice(info.remainingAmount)} />
+              {ok && sv!.showRemaining && <Row label="Còn lại (trả sau)" value={formatPrice(info.remainingAmount)} />}
+              {ok && sv!.payLater && <Row label="Phải trả khi đi/nhận phòng" value={formatPrice(info.totalPrice)} />}
             </div>
 
             <div className="mt-4 flex items-center justify-between rounded-2xl bg-forest-700 px-5 py-4 text-cream-50">
-              <span className="text-sm">{ok ? 'Đã đặt cọc' : 'Số tiền cọc'}</span>
-              <span className="font-display text-2xl font-bold">{formatPrice(info.depositAmount)}</span>
+              <span className="text-sm">{ok ? sv!.highlightLabel : 'Số tiền cọc'}</span>
+              <span className="font-display text-2xl font-bold">{formatPrice(ok ? sv!.highlightValue : info.depositAmount)}</span>
             </div>
           </div>
         </div>

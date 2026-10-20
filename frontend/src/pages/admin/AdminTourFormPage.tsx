@@ -21,6 +21,7 @@ export function AdminTourFormPage() {
   const fileInput = useRef<HTMLInputElement>(null)
 
   const [f, setF] = useState({ ...empty })
+  const [peakSeason, setPeakSeason] = useState(false) // Luồng 3: mùa cao điểm
   const [regionName, setRegionName] = useState('')
   const [themeName, setThemeName] = useState('')
   const [images, setImages] = useState<TourImage[]>([])
@@ -55,6 +56,7 @@ export function AdminTourFormPage() {
       departurePoint: t.departurePoint ?? '', destination: t.destination ?? '', meetingPoint: t.meetingPoint ?? '',
       minPax: String(t.minPax), maxPax: String(t.maxPax), guideLanguage: t.guideLanguage ?? '',
       basePrice: String(t.basePrice), depositRate: t.depositRate != null ? String(t.depositRate) : '',
+      // (isPeakSeason xử lý ở state riêng bên dưới)
       cancellationPolicyId: t.cancellationPolicyId != null ? String(t.cancellationPolicyId) : '',
       metaTitle: t.metaTitle ?? '', metaDescription: t.metaDescription ?? '',
       itinerary: (t.itinerary ?? []).map((it) => `${it.title || 'Ngày ' + it.dayNumber}: ${it.description || ''}`).join('\n'),
@@ -62,6 +64,7 @@ export function AdminTourFormPage() {
       excluded: (t.inclusions ?? []).filter((i) => i.type === 'EXCLUDED').map((i) => i.itemText).join('\n'),
       note: (t.notes ?? [])[0]?.content ?? '',
     })
+    setPeakSeason(Boolean(t.isPeakSeason))
     setRegionName(t.region?.name ?? '')
     setThemeName(t.theme?.name ?? '')
     setImages(t.images ?? [])
@@ -93,6 +96,7 @@ export function AdminTourFormPage() {
       guideLanguage: f.guideLanguage || undefined,
       basePrice: Number(f.basePrice),
       depositRate: f.depositRate || undefined,
+      isPeakSeason: peakSeason,
       cancellationPolicyId: f.cancellationPolicyId || undefined,
       metaTitle: f.metaTitle || undefined,
       metaDescription: f.metaDescription || undefined,
@@ -193,6 +197,12 @@ export function AdminTourFormPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div><label className={label}>Giá tham khảo (VNĐ) *</label><input className={field} type="number" min={0} value={f.basePrice} onChange={(e) => set('basePrice', e.target.value)} required /></div>
             <div><label className={label}>Tỷ lệ cọc (%)</label><input className={field} type="number" min={1} max={100} value={f.depositRate} onChange={(e) => set('depositRate', e.target.value)} placeholder="Theo cấu hình hệ thống" /></div>
+            <div className="flex items-end">
+              <label className="flex cursor-pointer items-center gap-2 pb-2 text-sm text-slate-200">
+                <input type="checkbox" checked={peakSeason} onChange={(e) => setPeakSeason(e.target.checked)} className="h-4 w-4 accent-emerald-500" />
+                🔥 Mùa cao điểm (ẩn "Trả sau", buộc đặt cọc)
+              </label>
+            </div>
             <div><label className={label}>Chính sách hủy</label>
               <select className={field} value={f.cancellationPolicyId} onChange={(e) => set('cancellationPolicyId', e.target.value)}>
                 <option value="">— Mặc định —</option>

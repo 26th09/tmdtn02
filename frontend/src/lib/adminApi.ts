@@ -156,6 +156,7 @@ export interface AdminProductDetail extends AdminProduct {
   checkInTime: string | null
   checkOutTime: string | null
   depositRate: number | null
+  isPeakSeason?: boolean
   cancellationPolicyId: number | null
   contactPhone: string | null
   contactEmail: string | null
@@ -724,6 +725,8 @@ export interface AdminOrder {
   remainingAmount: number
   discountAmount?: number
   paymentMethod: string | null
+  paymentStatus?: 'UNPAID' | 'AUTHORIZED' | 'PARTIALLY_PAID' | 'PAID' | 'REFUNDED'
+  cardAuthAmount?: number | null
   paidAmount: number
   payable: number
   paymentState: 'UNPAID' | 'PARTIAL' | 'PAID'
@@ -827,6 +830,7 @@ export interface AdminTourDetail extends AdminTour {
   maxPax: number
   guideLanguage: string | null
   depositRate: number | null
+  isPeakSeason?: boolean
   cancellationPolicyId: number | null
   metaTitle: string | null
   metaDescription: string | null

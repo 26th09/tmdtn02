@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ErrorState, Loading } from '../components/StateBlocks'
+import { StripePayLaterModal } from '../components/StripePayLaterModal'
 import { ApiError, api, formatPrice, splitVat, type BookingResult, type DetailResponse } from '../lib/api'
 import { useAuth } from '../lib/auth'
 
@@ -9,6 +10,14 @@ function nightsCount(from: string, to: string): number {
   const b = new Date(to).getTime()
   if (isNaN(a) || isNaN(b)) return 0
   return Math.max(0, Math.round((b - a) / 86400000))
+}
+
+// Nhãn màn thành công theo TRẠNG THÁI TIỀN (3 luồng) — không còn "đã cọc" cho đơn 0đ.
+const SUCCESS_VIEW: Record<string, { title: string; desc: string; badge: string; icon: string }> = {
+  PAID: { title: 'Thanh toán thành công', desc: 'Đơn đã được xác nhận và thanh toán đủ. Cảm ơn bạn!', badge: 'Đã thanh toán', icon: '✅' },
+  PARTIALLY_PAID: { title: 'Đặt cọc thành công', desc: 'Đơn của bạn đã được xác nhận. Cảm ơn bạn đã đặt cọc giữ chỗ!', badge: 'Đã đặt cọc', icon: '✅' },
+  AUTHORIZED: { title: 'Đặt chỗ thành công', desc: 'Đã giữ thẻ bảo lãnh (chưa trừ tiền). Bạn thanh toán khi đi/nhận phòng.', badge: 'Đã giữ thẻ', icon: '✅' },
+  UNPAID: { title: 'Đặt chỗ thành công', desc: 'Đơn đã được xác nhận. Vui lòng thanh toán khi đi/nhận phòng.', badge: 'Đã xác nhận', icon: '✅' },
 }
 
 // UC-09/UC-10 – Đặt homestay/tour (hỗ trợ guest checkout). Đến từ nút "Đặt ngay" ở UC-03.
@@ -28,13 +37,16 @@ export function BookingPage() {
   const [depositRate, setDepositRate] = useState(0.3)
   const [vatPercent, setVatPercent] = useState(8)
   const [vnpayEnabled, setVnpayEnabled] = useState(false)
+  const [stripeEnabled, setStripeEnabled] = useState(false)
   const [payOnDepMinHours, setPayOnDepMinHours] = useState(48)
   const [payOnDepEnabled, setPayOnDepEnabled] = useState(true)
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading')
 
-  // Bước thanh toán cọc (UC-11)
-  const [paying, setPaying] = useState<'VNPAY' | 'PAY_ON_DEPARTURE' | null>(null)
+  // Bước thanh toán (UC-11) — 3 luồng: VNPAY (FULL/DEPOSIT), Stripe Trả sau (giữ thẻ)
+  const [paying, setPaying] = useState<'VNPAY_FULL' | 'VNPAY_DEPOSIT' | 'PAY_ON_DEPARTURE' | null>(null)
   const [paid, setPaid] = useState(false)
+  const [paidStatus, setPaidStatus] = useState<'PAID' | 'PARTIALLY_PAID' | 'AUTHORIZED' | 'UNPAID'>('PARTIALLY_PAID')
+  const [showStripe, setShowStripe] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
 
   const [name, setName] = useState('')
@@ -63,6 +75,7 @@ export function BookingPage() {
         setDepositRate(cfg.depositRate)
         setVatPercent(cfg.vatPercent ?? 8)
         setVnpayEnabled(pay.vnpayEnabled)
+        setStripeEnabled(pay.stripeEnabled)
         setPayOnDepMinHours(pay.payOnDepartureMinHours ?? 48)
         setPayOnDepEnabled(pay.payOnDepartureEnabled ?? true)
         // Homestay (Property) hay Tour (bảng riêng)? Thử homestay trước, 404 -> tour.
@@ -239,17 +252,19 @@ export function BookingPage() {
     }
   }
 
-  async function pay(method: 'VNPAY' | 'PAY_ON_DEPARTURE') {
+  // Luồng 2 (FULL) & Luồng 3 (DEPOSIT) qua VNPAY.
+  async function payVnpay(payType: 'FULL' | 'DEPOSIT') {
     if (!result) return
     setPayError(null)
-    setPaying(method)
+    setPaying(payType === 'FULL' ? 'VNPAY_FULL' : 'VNPAY_DEPOSIT')
     try {
-      const r = await api.createPayment(result.booking.code, method)
+      const r = await api.createPayment(result.booking.code, 'VNPAY', payType)
       if (r.status === 'redirect' && r.redirectUrl) {
         window.location.href = r.redirectUrl // sang trang cổng VNPAY (BR-38)
         return
       }
-      if (r.status === 'success' || r.status === 'already_paid') {
+      if (r.status === 'already_paid') {
+        setPaidStatus(payType === 'FULL' ? 'PAID' : 'PARTIALLY_PAID')
         setPaid(true)
       } else {
         setPayError('Không thể tạo thanh toán. Vui lòng thử lại.')
@@ -261,13 +276,37 @@ export function BookingPage() {
     }
   }
 
+  // Luồng 1 — Trả sau 0đ: có Stripe -> mở form giữ thẻ; không có -> xác nhận đơn (chưa thanh toán).
+  async function payLater() {
+    if (!result) return
+    setPayError(null)
+    setPaying('PAY_ON_DEPARTURE')
+    try {
+      const r = await api.createPayment(result.booking.code, 'PAY_ON_DEPARTURE')
+      if (r.status === 'need_card') {
+        setShowStripe(true)
+        return
+      }
+      if (r.status === 'success' || r.status === 'already_paid') {
+        setPaidStatus((r.paymentStatus as typeof paidStatus) || 'UNPAID')
+        setPaid(true)
+      } else {
+        setPayError('Không thể xác nhận đơn. Vui lòng thử lại.')
+      }
+    } catch (err) {
+      setPayError(err instanceof ApiError ? err.message : 'Thao tác thất bại. Vui lòng thử lại.')
+    } finally {
+      setPaying(null)
+    }
+  }
+
   if (status === 'loading') return <Loading />
   if (status === 'error' || !product) return <ErrorState onRetry={() => location.reload()} />
 
   // Sau khi tạo đơn: bước thanh toán đặt cọc (UC-11), rồi màn hình hoàn tất.
   if (result) {
     const b = result.booking
-    const steps = ['Chọn dịch vụ', 'Thông tin', 'Đặt cọc', 'Hoàn tất']
+    const steps = ['Chọn dịch vụ', 'Thông tin', 'Thanh toán', 'Hoàn tất']
     const currentStep = paid ? 3 : 2
     return (
       <div className="mx-auto max-w-xl px-6 py-12">
@@ -297,13 +336,13 @@ export function BookingPage() {
 
         <div className="text-center">
           <div className={`mx-auto grid h-16 w-16 place-items-center rounded-full text-3xl ${paid ? 'bg-forest-100' : 'bg-clay-400/15'}`}>
-            {paid ? '✅' : '🧾'}
+            {paid ? SUCCESS_VIEW[paidStatus].icon : '🧾'}
           </div>
           <h1 className="mt-4 font-display text-3xl font-semibold text-forest-900">
-            {paid ? 'Đặt cọc thành công' : 'Xác nhận & đặt cọc'}
+            {paid ? SUCCESS_VIEW[paidStatus].title : b.isPeakSeason ? 'Xác nhận & đặt cọc giữ chỗ' : 'Xác nhận & thanh toán'}
           </h1>
           <p className="mt-1 text-forest-400">
-            {paid ? 'Đơn của bạn đã được xác nhận. Cảm ơn bạn đã đặt chỗ!' : 'Đơn đang chờ đặt cọc để hoàn tất.'}
+            {paid ? SUCCESS_VIEW[paidStatus].desc : b.isPeakSeason ? 'Mùa cao điểm — vui lòng đặt cọc để giữ chỗ.' : 'Chọn cách thanh toán để hoàn tất đơn.'}
           </p>
         </div>
 
@@ -315,7 +354,7 @@ export function BookingPage() {
               <p className="font-mono text-lg font-bold text-forest-700">{b.code}</p>
             </div>
             <span className="rounded-full bg-clay-500/15 px-3 py-1 text-xs font-medium text-clay-600">
-              {paid ? 'Đã đặt cọc' : 'Chờ đặt cọc'}
+              {paid ? SUCCESS_VIEW[paidStatus].badge : 'Chờ thanh toán'}
             </span>
           </div>
 
@@ -376,10 +415,28 @@ export function BookingPage() {
               <Row label="Còn lại (trả sau)" value={formatPrice(b.remainingAmount)} />
             </div>
 
-            {/* Số tiền cọc nổi bật */}
+            {/* Số tiền nổi bật — theo luồng */}
             <div className="mt-4 flex items-center justify-between rounded-2xl bg-forest-700 px-5 py-4 text-cream-50">
-              <span className="text-sm">{paid ? 'Đã đặt cọc' : 'Số tiền cần đặt cọc'}</span>
-              <span className="font-display text-2xl font-bold">{formatPrice(b.depositAmount)}</span>
+              <span className="text-sm">
+                {paid
+                  ? SUCCESS_VIEW[paidStatus].badge
+                  : b.isPeakSeason
+                    ? 'Số tiền cần đặt cọc'
+                    : 'Tổng cần thanh toán'}
+              </span>
+              <span className="font-display text-2xl font-bold">
+                {formatPrice(
+                  paid
+                    ? paidStatus === 'PAID'
+                      ? b.totalPrice
+                      : paidStatus === 'PARTIALLY_PAID' || paidStatus === 'AUTHORIZED'
+                        ? b.depositAmount
+                        : b.totalPrice
+                    : b.isPeakSeason
+                      ? b.depositAmount
+                      : b.totalPrice,
+                )}
+              </span>
             </div>
 
             {/* Thời hạn giữ chỗ */}
@@ -403,64 +460,104 @@ export function BookingPage() {
           <div className="mt-6">
             <h2 className="mb-3 font-display text-lg font-semibold text-forest-900">Chọn phương thức thanh toán</h2>
             {payError && <div className="mb-3 rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{payError}</div>}
+
+            {b.isPeakSeason && (
+              <div className="mb-3 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+                🔥 Mùa cao điểm — bắt buộc đặt cọc {Math.round(depositRate * 100)}% để giữ chỗ; không áp dụng "Trả sau".
+              </div>
+            )}
+
             <div className="space-y-3">
-              {vnpayEnabled && (
+              {/* Luồng 2 — VNPAY trả thẳng 100% (chỉ ngoài mùa cao điểm) */}
+              {vnpayEnabled && !b.isPeakSeason && (
                 <button
-                  onClick={() => pay('VNPAY')}
+                  onClick={() => payVnpay('FULL')}
                   disabled={paying !== null}
                   className="flex w-full items-center gap-4 rounded-2xl border-2 border-forest-600 bg-forest-700 px-5 py-4 text-left text-cream-50 transition hover:bg-forest-800 disabled:opacity-50"
                 >
                   <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-cream-50 text-lg font-bold text-forest-700">₫</span>
                   <span className="flex-1">
-                    <span className="block font-semibold">
-                      {paying === 'VNPAY' ? 'Đang chuyển tới VNPAY...' : 'Thanh toán qua VNPAY'}
-                    </span>
-                    <span className="block text-xs text-cream-200">Thẻ ATM / QR / thẻ quốc tế — xác nhận tức thì</span>
+                    <span className="block font-semibold">{paying === 'VNPAY_FULL' ? 'Đang chuyển tới VNPAY...' : 'Thanh toán 100% qua VNPAY'}</span>
+                    <span className="block text-xs text-cream-200">Trả đủ một lần — xác nhận & nhận vé ngay</span>
                   </span>
-                  <span className="font-semibold">{formatPrice(b.depositAmount)}</span>
+                  <span className="font-semibold">{formatPrice(payableTotal)}</span>
                 </button>
               )}
-              {(() => {
-                if (!payOnDepEnabled) return null
+
+              {/* Luồng 3 — VNPAY đặt cọc X% (bắt buộc khi mùa cao điểm, tùy chọn khi thường) */}
+              {vnpayEnabled && (
+                <button
+                  onClick={() => payVnpay('DEPOSIT')}
+                  disabled={paying !== null}
+                  className={`flex w-full items-center gap-4 rounded-2xl border-2 px-5 py-4 text-left transition disabled:opacity-50 ${
+                    b.isPeakSeason ? 'border-forest-600 bg-forest-700 text-cream-50 hover:bg-forest-800' : 'border-cream-300 bg-white hover:border-forest-300'
+                  }`}
+                >
+                  <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl text-lg font-bold ${b.isPeakSeason ? 'bg-cream-50 text-forest-700' : 'bg-forest-100 text-forest-700'}`}>%</span>
+                  <span className="flex-1">
+                    <span className={`block font-semibold ${b.isPeakSeason ? '' : 'text-forest-900'}`}>
+                      {paying === 'VNPAY_DEPOSIT' ? 'Đang chuyển tới VNPAY...' : `Đặt cọc ${Math.round(depositRate * 100)}% qua VNPAY`}
+                    </span>
+                    <span className={`block text-xs ${b.isPeakSeason ? 'text-cream-200' : 'text-forest-400'}`}>Giữ chỗ trước, trả phần còn lại khi đi/nhận phòng</span>
+                  </span>
+                  <span className={`font-semibold ${b.isPeakSeason ? '' : 'text-forest-700'}`}>{formatPrice(b.depositAmount)}</span>
+                </button>
+              )}
+
+              {/* Luồng 1 — Trả sau 0đ (giữ thẻ bảo lãnh qua Stripe); ẩn khi mùa cao điểm */}
+              {!b.isPeakSeason && payOnDepEnabled && (() => {
                 const startStr = isTour ? date : from
                 const hoursLeft = startStr ? (new Date(startStr).getTime() - Date.now()) / 3600000 : Infinity
-                const allowed = hoursLeft >= payOnDepMinHours
-                if (!allowed) {
+                if (hoursLeft < payOnDepMinHours) {
                   return (
                     <div className="rounded-2xl border border-dashed border-cream-300 bg-cream-50 px-5 py-3 text-xs text-forest-400">
-                      ⏳ "Trả sau khi đi tour" chỉ áp dụng khi còn ít nhất {payOnDepMinHours} giờ tới ngày đi/nhận phòng. Hiện quá sát ngày — vui lòng thanh toán qua VNPAY.
+                      ⏳ "Trả sau" chỉ áp dụng khi còn ít nhất {payOnDepMinHours} giờ tới ngày đi/nhận phòng. Hiện quá sát ngày — vui lòng thanh toán qua VNPAY.
                     </div>
                   )
                 }
                 return (
                   <>
                     <button
-                      onClick={() => pay('PAY_ON_DEPARTURE')}
+                      onClick={payLater}
                       disabled={paying !== null}
                       className="flex w-full items-center gap-4 rounded-2xl border-2 border-cream-300 bg-white px-5 py-4 text-left transition hover:border-forest-300 disabled:opacity-50"
                     >
                       <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-forest-100 text-lg">🧳</span>
                       <span className="flex-1">
                         <span className="block font-semibold text-forest-900">
-                          {paying === 'PAY_ON_DEPARTURE' ? 'Đang giữ chỗ...' : isTour ? 'Trả sau khi đi tour' : 'Trả khi nhận phòng'}
+                          {paying === 'PAY_ON_DEPARTURE' ? 'Đang xử lý...' : isTour ? 'Trả sau khi đi tour' : 'Trả khi nhận phòng'}
                         </span>
                         <span className="block text-xs text-forest-400">
-                          Không cần trả tiền ngay — thanh toán trực tiếp cho hướng dẫn viên/chủ nhà vào ngày đi. Điều hành sẽ gọi xác nhận.
+                          {stripeEnabled
+                            ? 'Giữ thẻ bảo lãnh chống bùng (không trừ tiền) — trả trực tiếp khi đi/nhận phòng.'
+                            : 'Không cần trả ngay — trả trực tiếp cho hướng dẫn viên/chủ nhà vào ngày đi. Điều hành sẽ gọi xác nhận.'}
                         </span>
                       </span>
                       <span className="font-semibold text-forest-700">0₫ ngay</span>
                     </button>
                     <p className="rounded-xl bg-clay-50 px-3 py-2 text-xs text-clay-600">
-                      ⚠ Lưu ý: Hủy không báo trước 24h có thể khiến số điện thoại của bạn bị hạn chế đặt chỗ trên hệ thống. Vui lòng giữ liên lạc để điều hành xác nhận.
+                      ⚠ Lưu ý: Hủy không báo trước 24h có thể khiến bạn bị hạn chế đặt chỗ{stripeEnabled ? ' hoặc bị thu phí no-show trên thẻ đã giữ' : ''}. Vui lòng giữ liên lạc.
                     </p>
                   </>
                 )
               })()}
             </div>
             <p className="mt-3 flex items-center gap-1.5 text-xs text-forest-400">
-              🔒 Cổng VNPAY chạy ở môi trường sandbox — không dùng thẻ thật.
-              {!vnpayEnabled && ' Hiện chỉ bật "Trả sau" (chưa cấu hình VNPAY).'}
+              🔒 VNPAY sandbox{stripeEnabled ? ' · Stripe test mode' : ''} — không dùng thẻ thật.
+              {!vnpayEnabled && ' Hiện chưa cấu hình VNPAY.'}
             </p>
+
+            {showStripe && (
+              <StripePayLaterModal
+                code={b.code}
+                onClose={() => setShowStripe(false)}
+                onSuccess={() => {
+                  setShowStripe(false)
+                  setPaidStatus('AUTHORIZED')
+                  setPaid(true)
+                }}
+              />
+            )}
           </div>
         ) : (
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">

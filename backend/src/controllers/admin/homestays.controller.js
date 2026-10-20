@@ -121,6 +121,7 @@ function scalarData(body) {
     checkOutTime: str(body.checkOutTime),
     basePrice: Number(body.basePrice),
     depositRate: num(body.depositRate),
+    isPeakSeason: Boolean(body.isPeakSeason),
     cancellationPolicyId: num(body.cancellationPolicyId),
     contactPhone: str(body.contactPhone),
     contactEmail: str(body.contactEmail),

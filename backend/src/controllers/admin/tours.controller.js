@@ -114,6 +114,7 @@ function scalarData(body) {
     guideLanguage: str(body.guideLanguage),
     basePrice: Number(body.basePrice),
     depositRate: num(body.depositRate),
+    isPeakSeason: Boolean(body.isPeakSeason),
     cancellationPolicyId: num(body.cancellationPolicyId),
     metaTitle: str(body.metaTitle) || str(body.title),
     metaDescription: str(body.metaDescription) || str(body.shortDescription),

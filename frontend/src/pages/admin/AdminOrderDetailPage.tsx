@@ -142,11 +142,33 @@ export function AdminOrderDetailPage() {
         <div className="rounded-xl border border-slate-800 bg-slate-950 p-5">
           <h2 className="mb-3 font-semibold text-slate-200">Thanh toán & tài chính</h2>
           <dl className="space-y-1 text-sm">
-            <Row label="Phương thức" value={order.paymentMethod === 'PAY_ON_DEPARTURE' || order.paymentMethod === 'COD' ? 'Trả sau khi đi tour' : order.paymentMethod || '-'} />
+            <Row
+              label="Phương thức"
+              value={
+                order.paymentMethod === 'STRIPE'
+                  ? 'Trả sau (giữ thẻ bảo lãnh)'
+                  : order.paymentMethod === 'PAY_ON_DEPARTURE' || order.paymentMethod === 'COD'
+                    ? 'Trả sau khi đi/nhận phòng'
+                    : order.paymentMethod || '-'
+              }
+            />
             <Row
               label="Trạng thái TT"
-              value={order.paymentState === 'PAID' ? '✅ Đã thanh toán đủ' : order.paymentState === 'PARTIAL' ? '🟡 Thanh toán 1 phần' : '⚪ Chưa thanh toán'}
+              value={
+                order.paymentStatus === 'AUTHORIZED'
+                  ? '🔒 Đã giữ thẻ bảo lãnh (chưa trừ tiền)'
+                  : order.paymentStatus === 'PAID' || order.paymentState === 'PAID'
+                    ? '✅ Đã thanh toán đủ'
+                    : order.paymentStatus === 'PARTIALLY_PAID' || order.paymentState === 'PARTIAL'
+                      ? '🟡 Đã đặt cọc một phần'
+                      : order.paymentStatus === 'REFUNDED'
+                        ? '↩️ Đã hoàn tiền'
+                        : '⚪ Chưa thanh toán'
+              }
             />
+            {order.paymentStatus === 'AUTHORIZED' && order.cardAuthAmount != null && (
+              <Row label="Số tiền giữ trên thẻ" value={fmt(order.cardAuthAmount)} />
+            )}
             <Row label="Phải trả" value={fmt(order.payable)} />
             <Row label="Đã thu" value={fmt(order.paidAmount)} />
             {order.outstanding > 0 && <Row label="Còn thiếu" value={fmt(order.outstanding)} />}

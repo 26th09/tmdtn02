@@ -33,10 +33,12 @@ function summary(b) {
     remainingAmount: b.remainingAmount,
     discountAmount: b.discountAmount,
     paymentMethod: b.paymentMethod,
+    paymentStatus: b.paymentStatus, // UNPAID | AUTHORIZED | PARTIALLY_PAID | PAID | REFUNDED
+    cardAuthAmount: b.cardAuthAmount, // Luồng 1: số tiền đang giữ trên thẻ
     // Tài chính: tiền đã nhận + trạng thái thanh toán + còn thiếu + đủ thông tin liên hệ.
     paidAmount: b.paidAmount,
     payable: payableTotal(b),
-    paymentState: paymentState(b), // UNPAID | PARTIAL | PAID
+    paymentState: paymentState(b), // UNPAID | PARTIAL | PAID (suy từ paidAmount)
     outstanding: outstanding(b),
     contactComplete: Boolean(b.guestName && b.guestEmail && b.guestPhone),
     refundRatio: b.refundRequests?.[0]?.ratio ?? null,

@@ -22,13 +22,14 @@ export async function bookingConfig(req, res) {
   res.json({ depositRate: await getDepositRate(), holdMinutes: HOLD_MINUTES, vatPercent: cfg.vatPercent })
 }
 
-function publicBooking(b, productName, productSlug) {
+function publicBooking(b, productName, productSlug, isPeakSeason = false) {
   return {
     code: b.code,
     type: b.type,
     status: b.status,
     productName,
     productSlug,
+    isPeakSeason, // Luồng 3: mùa cao điểm -> ẩn "Trả sau", buộc đặt cọc
     guestName: b.guestName,
     guestEmail: b.guestEmail,
     guestPhone: b.guestPhone,
@@ -174,7 +175,7 @@ export async function createHomestayBooking(req, res, next) {
       remainingAmount,
     }).catch((e) => console.error('Gửi email đặt chỗ thất bại:', e))
 
-    res.status(201).json({ booking: publicBooking(created, property.name, property.slug), pin })
+    res.status(201).json({ booking: publicBooking(created, property.name, property.slug, property.isPeakSeason), pin })
   } catch (err) {
     next(err)
   }
@@ -297,7 +298,7 @@ export async function createTourBooking(req, res, next) {
       remainingAmount,
     }).catch((e) => console.error('Gửi email đặt tour thất bại:', e))
 
-    res.status(201).json({ booking: publicBooking(created, tour.title, tour.slug), pin })
+    res.status(201).json({ booking: publicBooking(created, tour.title, tour.slug, tour.isPeakSeason), pin })
   } catch (err) {
     next(err)
   }

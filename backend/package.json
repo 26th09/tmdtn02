@@ -24,7 +24,8 @@
     "google-auth-library": "^11.1.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.4.0",
-    "nodemailer": "^10.0.10"
+    "nodemailer": "^10.0.10",
+    "stripe": "^23.0.0"
   },
   "devDependencies": {
     "prisma": "^6.19.3"
