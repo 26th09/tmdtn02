@@ -97,8 +97,8 @@ export function StripePayLaterModal({ code, onSuccess, onClose }: { code: string
   const stripePromise = useMemo<Promise<Stripe | null> | null>(() => (pubKey ? loadStripe(pubKey) : null), [pubKey])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-900/50 px-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-forest-900/50 px-4 py-6 sm:items-center" onClick={onClose}>
+      <div className="my-auto max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h3 className="mb-1 font-display text-xl font-semibold text-forest-900">Trả sau — giữ thẻ bảo lãnh</h3>
         <p className="mb-4 text-sm text-forest-400">Liên kết thẻ để giữ chỗ. Thẻ của bạn sẽ không bị trừ tiền.</p>
         {error ? (

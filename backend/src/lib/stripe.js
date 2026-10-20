@@ -30,7 +30,9 @@ export async function createPreAuthIntent({ amount, metadata }) {
     amount,
     currency: 'vnd',
     capture_method: 'manual', // giữ tiền, chưa trừ
-    automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
+    // Chỉ dùng THẺ: form gọn (số thẻ/ngày/CVC), bỏ ví Link (Email/SĐT/tên) -> hết cảnh báo
+    // "biểu mẫu không dùng kết nối bảo mật" và không bị tràn chiều cao.
+    payment_method_types: ['card'],
     metadata: metadata || {},
   })
 }
