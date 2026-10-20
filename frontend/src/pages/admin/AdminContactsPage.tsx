@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { AdminApiError, adminApi, type ContactCounts, type ContactMessage, type ContactReply } from '../../lib/adminApi'
 
 const field = 'rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none'
@@ -100,7 +101,10 @@ export function AdminContactsPage() {
                       </span>
                       <span className="shrink-0 rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-400">{TYPE_LABEL[m.type]}</span>
                     </div>
-                    <div className="mt-0.5 truncate text-sm text-slate-400">{m.subject || m.body}</div>
+                    <div className="mt-0.5 truncate text-sm text-slate-400">
+                      {m.bookingCode && <span className="mr-1 rounded bg-emerald-950 px-1 text-[11px] text-emerald-300">🧾 {m.bookingCode}</span>}
+                      {m.subject || m.body}
+                    </div>
                     <div className="mt-0.5 text-xs text-slate-600">{fmt(m.createdAt)} · {STATUS_LABEL[m.status]}{m._count?.replies ? ` · ${m._count.replies} trả lời` : ''}</div>
                   </button>
                 ))}
@@ -185,7 +189,12 @@ function ContactDetail({
             {item.name} · <a href={`mailto:${item.email}`} className="text-emerald-400 hover:underline">{item.email}</a>
             {item.phone && ` · ${item.phone}`}
           </div>
-          <div className="text-xs text-slate-600">{TYPE_LABEL[item.type]} · {fmt(item.createdAt)}</div>
+          <div className="text-xs text-slate-600">
+            {TYPE_LABEL[item.type]} · {fmt(item.createdAt)}
+            {item.bookingCode && (
+              <> · <Link to={`/admin/orders/${item.bookingCode}`} className="font-mono text-emerald-400 hover:text-emerald-300">🧾 Đơn {item.bookingCode}</Link></>
+            )}
+          </div>
         </div>
         <button onClick={markUnread} className="rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800">
           Đánh dấu chưa đọc

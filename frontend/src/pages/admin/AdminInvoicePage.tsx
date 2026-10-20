@@ -5,6 +5,14 @@ import { adminApi, type AdminOrderDetail, type AdminSystemConfig } from '../../l
 const fmt = (n: number) => (n || 0).toLocaleString('vi-VN') + '₫'
 const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString('vi-VN') : '—')
 
+// Thông tin StayTour mặc định (dùng khi cấu hình người bán chưa điền).
+const SELLER = {
+  name: 'StayTour',
+  address: 'VP làm việc: Đại học Phenikaa, Hà Nội',
+  phone: '0784369189',
+  email: '23010221@st.phenikaa-uni.edu.vn',
+}
+
 // Hóa đơn GTGT (VAT) in được cho một đơn. Giá đã gồm VAT -> tách phần chưa VAT + thuế.
 export function AdminInvoicePage() {
   const { code } = useParams<{ code: string }>()
@@ -58,10 +66,10 @@ export function AdminInvoicePage() {
         <div className="mb-6 grid grid-cols-2 gap-6 text-sm">
           <div>
             <p className="mb-1 font-semibold text-slate-500">ĐƠN VỊ BÁN</p>
-            <p className="font-medium">{config.sellerName || 'StayTour'}</p>
-            {config.sellerAddress && <p>{config.sellerAddress}</p>}
-            {config.sellerPhone && <p>ĐT: {config.sellerPhone}</p>}
-            {config.sellerEmail && <p>Email: {config.sellerEmail}</p>}
+            <p className="font-medium">{config.sellerName || SELLER.name}</p>
+            <p>{config.sellerAddress || SELLER.address}</p>
+            <p>Hotline: {config.sellerPhone || SELLER.phone}</p>
+            <p>Email: {config.sellerEmail || SELLER.email}</p>
           </div>
           <div>
             <p className="mb-1 font-semibold text-slate-500">KHÁCH HÀNG</p>

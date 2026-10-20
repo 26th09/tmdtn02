@@ -353,7 +353,7 @@ const put = <T>(path: string, body: unknown) =>
 export const api = {
   getHome: () => get<HomeData>('/api/catalog/home'),
   // Liên hệ / CSKH (công khai)
-  submitContact: (body: { type: 'CUSTOMER' | 'PARTNER'; name: string; email: string; phone?: string; subject?: string; body: string }) =>
+  submitContact: (body: { type: 'CUSTOMER' | 'PARTNER'; name: string; email: string; phone?: string; subject?: string; body: string; bookingCode?: string }) =>
     post<{ message: string }>('/api/contact', body),
   getCategories: (type?: ProductType) =>
     get<{ categories: Category[] }>(`/api/catalog/categories${type ? `?type=${type}` : ''}`),

@@ -688,6 +688,24 @@ async function main() {
     }
   }
 
+  // ---- Thông tin người bán (hiển thị trên hóa đơn VAT) ----
+  await prisma.systemConfig.upsert({
+    where: { id: 1 },
+    update: {
+      sellerName: 'StayTour',
+      sellerAddress: 'VP làm việc: Đại học Phenikaa, Hà Nội',
+      sellerPhone: '0784369189',
+      sellerEmail: '23010221@st.phenikaa-uni.edu.vn',
+    },
+    create: {
+      id: 1,
+      sellerName: 'StayTour',
+      sellerAddress: 'VP làm việc: Đại học Phenikaa, Hà Nội',
+      sellerPhone: '0784369189',
+      sellerEmail: '23010221@st.phenikaa-uni.edu.vn',
+    },
+  })
+
   // ---- Tài khoản quản trị mặc định (chỉ tạo nếu chưa có) ----
   const adminUsername = process.env.SEED_ADMIN_USERNAME || 'admin'
   const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'Admin@123456'

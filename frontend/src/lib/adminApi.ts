@@ -586,6 +586,7 @@ export interface ContactMessage {
   phone: string | null
   subject: string | null
   body: string
+  bookingCode: string | null
   status: 'UNREAD' | 'READ' | 'REPLIED' | 'ARCHIVED'
   readAt: string | null
   repliedAt: string | null
