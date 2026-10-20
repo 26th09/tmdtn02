@@ -13,8 +13,27 @@ import {
 } from '../lib/booking.js'
 import { validateDiscount } from '../lib/discount.js'
 import { getSystemConfig } from '../lib/config.js'
+import { requestInvoice } from '../lib/invoice.js'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// Nếu khách chọn "Xuất hóa đơn" ở bước đặt -> lưu yêu cầu (PENDING), phát hành sau khi thu đủ tiền.
+// invoice: { wantInvoice, taxCode?, companyName?, companyAddress?, invoiceEmail? }.
+async function attachInvoiceRequest(bookingId, invoice, fallbackEmail) {
+  if (!invoice || !invoice.wantInvoice) return
+  const invoiceEmail = String(invoice.invoiceEmail || fallbackEmail || '').trim()
+  if (!EMAIL_RE.test(invoiceEmail)) return // email không hợp lệ -> bỏ qua, không chặn đặt đơn
+  try {
+    await requestInvoice(bookingId, {
+      taxCode: invoice.taxCode,
+      companyName: invoice.companyName,
+      companyAddress: invoice.companyAddress,
+      invoiceEmail,
+    })
+  } catch (e) {
+    console.error('Lưu yêu cầu xuất hóa đơn thất bại:', e?.message || e)
+  }
+}
 
 // Cấu hình công khai cho luồng đặt (tỷ lệ cọc, hạn giữ chỗ, % VAT để tách thuế hiển thị).
 export async function bookingConfig(req, res) {
@@ -66,7 +85,7 @@ async function resolveDiscount({ discountCode, type, productId, propertyId, tour
 // UC-09 – Đặt homestay: giữ chỗ tạm + tạo đơn "chờ cọc". Hỗ trợ guest checkout.
 export async function createHomestayBooking(req, res, next) {
   try {
-    const { slug, checkIn, checkOut, guests, roomTypeId, guestName, guestEmail, guestPhone, acceptedTerms, discountCode, note } = req.body
+    const { slug, checkIn, checkOut, guests, roomTypeId, guestName, guestEmail, guestPhone, acceptedTerms, discountCode, note, invoice } = req.body
 
     // BR-28 / 5a: bắt buộc đồng ý điều khoản.
     if (!acceptedTerms) {
@@ -165,6 +184,9 @@ export async function createHomestayBooking(req, res, next) {
       }),
     ])
 
+    // Lưu yêu cầu xuất hóa đơn (nếu có) — phát hành sau khi thu đủ tiền.
+    await attachInvoiceRequest(created.id, invoice, guestEmail)
+
     // Gửi email xác nhận (nền, không chặn response).
     sendBookingEmail(guestEmail, {
       code,
@@ -184,7 +206,7 @@ export async function createHomestayBooking(req, res, next) {
 // UC-10 – Đặt tour: giữ chỗ theo số ghế của một chuyến khởi hành + tạo đơn "chờ cọc".
 export async function createTourBooking(req, res, next) {
   try {
-    const { slug, date, guests, children, guestName, guestEmail, guestPhone, acceptedTerms, discountCode, note } = req.body
+    const { slug, date, guests, children, guestName, guestEmail, guestPhone, acceptedTerms, discountCode, note, invoice } = req.body
 
     if (!acceptedTerms) {
       return res.status(400).json({ message: 'Vui lòng đồng ý điều khoản và chính sách trước khi đặt' }) // 5a
@@ -288,6 +310,9 @@ export async function createTourBooking(req, res, next) {
         },
       }),
     ])
+
+    // Lưu yêu cầu xuất hóa đơn (nếu có) — phát hành sau khi thu đủ tiền.
+    await attachInvoiceRequest(created.id, invoice, guestEmail)
 
     sendBookingEmail(guestEmail, {
       code,

@@ -358,6 +358,17 @@ export const adminApi = {
   processRefund: (code: string, refundId: number, data: { amount?: number; referenceCode?: string }) =>
     post<{ refund: AdminRefundRequest }>(`/api/admin/orders/${code}/refunds/${refundId}/process`, data),
 
+  // Hóa đơn điện tử — danh sách/lọc, phát hành lại, hủy.
+  listInvoices: (params: { status?: string; search?: string } = {}) => {
+    const qs = new URLSearchParams()
+    if (params.status) qs.set('status', params.status)
+    if (params.search) qs.set('search', params.search)
+    return get<{ items: AdminInvoice[]; counts: Record<string, number> }>(`/api/admin/invoices?${qs.toString()}`)
+  },
+  retryInvoice: (id: number) => post<{ ok: boolean; invoice: AdminInvoice | null }>(`/api/admin/invoices/${id}/retry`, {}),
+  cancelInvoice: (id: number, reason?: string) =>
+    post<{ ok: boolean; invoice: AdminInvoice | null }>(`/api/admin/invoices/${id}/cancel`, { reason }),
+
   // UC-19 – Quản lý người dùng & phân quyền
   listCustomers: (params: { status?: string; search?: string } = {}) => {
     const qs = new URLSearchParams()
@@ -502,6 +513,34 @@ export const adminApi = {
     }
     return res.json() as Promise<{ filename: string; url: string }>
   },
+}
+
+export type AdminInvoiceStatus = 'PENDING' | 'PROCESSING' | 'ISSUED' | 'FAILED' | 'CANCELED'
+
+export interface AdminInvoice {
+  id: number
+  bookingCode: string | null
+  bookingStatus: string | null
+  productName: string
+  guestName: string | null
+  paidAmount: number
+  totalPrice: number
+  taxCode: string | null
+  companyName: string | null
+  companyAddress: string | null
+  invoiceEmail: string
+  status: AdminInvoiceStatus
+  invoiceNumber: string | null
+  invoiceSerial: string | null
+  reservationCode: string | null
+  pdfUrl: string | null
+  xmlUrl: string | null
+  errorLog: string | null
+  retryCount: number
+  maxRetry: number
+  issuedAt: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 export interface AdminPromotion {

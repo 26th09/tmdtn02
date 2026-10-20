@@ -4,6 +4,7 @@ import { nightsBetween } from '../../lib/booking.js'
 import { sendOrderStatusEmail, sendRefundProcessedEmail, sendTourVoucherEmail } from '../../lib/mailer.js'
 import { paymentState, outstanding, payableTotal, fullPaymentDeadline, codDeadline } from '../../lib/payment.js'
 import { consumeDiscountIfAny } from '../../lib/discount.js'
+import { maybeIssueInvoice, cancelInvoice } from '../../lib/invoice.js'
 
 // BR-85: vòng đời đơn — mọi chuyển trạng thái không có trong danh sách đều bị từ chối.
 const TRANSITIONS = {
@@ -125,6 +126,11 @@ export async function setOrderPayment(req, res, next) {
     }
     await prisma.$transaction(ops)
     if (target > 0) await consumeDiscountIfAny(booking) // trừ lượt mã giảm giá khi thực nhận tiền
+    // Admin xác nhận đã thu đủ -> thử phát hành hóa đơn (nếu đơn có yêu cầu xuất hóa đơn).
+    const updatedForInvoice = { ...booking, paidAmount: target }
+    if (payableTotal(updatedForInvoice) > 0 && target >= payableTotal(updatedForInvoice)) {
+      maybeIssueInvoice(booking.id).catch((e) => console.error('Phát hành hóa đơn (admin thu đủ) thất bại:', e))
+    }
     await logAdminAction(req.admin.sub, 'order.payment', { entityType: 'Booking', entityId: booking.id, detail: { paidAmount: target } })
 
     const updatedB = { ...booking, paidAmount: target }
@@ -145,6 +151,7 @@ export async function getOrder(req, res, next) {
         tour: { select: { title: true, slug: true } },
         payments: { orderBy: { createdAt: 'desc' } },
         refundRequests: { orderBy: { createdAt: 'desc' } },
+        invoice: true,
       },
     })
     if (!booking) return res.status(404).json({ message: 'Không tìm thấy đơn' })
@@ -165,6 +172,7 @@ export async function getOrder(req, res, next) {
       },
       payments: booking.payments,
       refundRequests: booking.refundRequests,
+      invoice: booking.invoice,
     })
   } catch (err) {
     next(err)
@@ -340,6 +348,9 @@ export async function processRefund(req, res, next) {
       entityId: refund.id,
       detail: { bookingCode: booking.code, amount: refund.amount, referenceCode: referenceCode || null },
     })
+
+    // BR: hoàn tiền -> hủy hóa đơn điện tử (nếu có) + gửi biên bản hủy mô phỏng.
+    cancelInvoice(booking.id, 'Hoàn tiền đơn ' + booking.code).catch((e) => console.error('Hủy hóa đơn khi hoàn tiền thất bại:', e))
 
     sendRefundProcessedEmail(booking.guestEmail, {
       code: booking.code,

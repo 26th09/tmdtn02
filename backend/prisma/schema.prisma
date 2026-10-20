@@ -234,6 +234,15 @@ enum PaymentStatus {
   REFUNDED // đã hoàn tiền
 }
 
+// Trạng thái phát hành HÓA ĐƠN ĐIỆN TỬ của một đơn (mô phỏng nhà cung cấp IVAN).
+enum InvoiceStatus {
+  PENDING // khách đã yêu cầu xuất hóa đơn, chờ thanh toán đủ để phát hành
+  PROCESSING // đang gửi sang hệ thống hóa đơn (mô phỏng)
+  ISSUED // đã phát hành thành công (có số hóa đơn + file)
+  FAILED // phát hành lỗi, sẽ thử lại (retryCount)
+  CANCELED // đã hủy/điều chỉnh (vd khi hoàn tiền) — biên bản hủy
+}
+
 model Booking {
   id      Int           @id @default(autoincrement())
   code    String        @unique // mã đơn ngẫu nhiên khó đoán (BR-29)
@@ -308,6 +317,9 @@ model Booking {
   review      Review?
   reviewToken ReviewToken?
 
+  // Hóa đơn điện tử (0/1 hóa đơn mỗi đơn)
+  invoice OrderInvoice?
+
   @@index([productId])
   @@index([propertyId])
   @@index([tourId])
@@ -379,6 +391,38 @@ model Payment {
   createdAt     DateTime @default(now())
 
   @@index([bookingId])
+}
+
+// Hóa đơn điện tử (mô phỏng IVAN): mỗi đơn Booking có 0/1 hóa đơn. Khách yêu cầu khi đặt
+// (PENDING), hệ thống phát hành khi đã thu đủ tiền -> ISSUED kèm file HTML (pdfUrl) + email.
+model OrderInvoice {
+  id        Int     @id @default(autoincrement())
+  bookingId Int     @unique
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  // Thông tin người mua (xuất cho công ty hoặc cá nhân)
+  taxCode        String? // mã số thuế (rỗng = hóa đơn cá nhân)
+  companyName    String?
+  companyAddress String?
+  invoiceEmail   String // email nhận hóa đơn
+
+  status InvoiceStatus @default(PENDING)
+
+  // Thông tin phát hành (điền khi ISSUED)
+  invoiceNumber   String? // số hóa đơn, vd "00001234"
+  invoiceSerial   String? // ký hiệu, vd "C26TBA" (C + năm 26 + ...)
+  reservationCode String? // mã tra cứu/bí mật nhận hóa đơn trên cổng
+  pdfUrl          String? // liên kết file hóa đơn (mô phỏng: HTML tĩnh)
+  xmlUrl          String? // liên kết file XML (mô phỏng, tùy chọn)
+
+  errorLog   String? @db.Text // log lỗi lần phát hành gần nhất (nếu FAILED)
+  retryCount Int     @default(0) // số lần đã thử phát hành lại (tối đa 3)
+  issuedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
 }
 
 // UC-08 – Danh sách yêu thích (BR-22: gắn với tài khoản).

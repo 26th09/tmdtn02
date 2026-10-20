@@ -4,6 +4,7 @@ import { getDepositRate } from '../lib/booking.js'
 import { getSystemConfig } from '../lib/config.js'
 import { consumeDiscountIfAny } from '../lib/discount.js'
 import { payableTotal } from '../lib/payment.js'
+import { maybeIssueInvoice } from '../lib/invoice.js'
 import { buildPaymentUrl, isVnpayConfigured, verifyReturn } from '../lib/vnpay.js'
 import {
   isStripeConfigured,
@@ -93,6 +94,8 @@ async function markFullyPaid(booking, method, transactionId) {
     }),
   ])
   await consumeDiscountIfAny(booking)
+  // Đã thu đủ 100% -> thử phát hành hóa đơn (nếu đơn có yêu cầu xuất hóa đơn).
+  maybeIssueInvoice(booking.id).catch((e) => console.error('Phát hành hóa đơn (trả đủ) thất bại:', e))
   sendBookingEmail(booking.guestEmail, {
     code: booking.code, pin: null, productName: '(đơn ' + booking.code + ')',
     totalPrice: booking.totalPrice, depositAmount: booking.depositAmount, remainingAmount: 0,
@@ -118,6 +121,8 @@ async function markDepositPaid(booking, method, transactionId) {
     }),
   ])
   await consumeDiscountIfAny(booking)
+  // Mới đặt cọc một phần: maybeIssueInvoice sẽ tự bỏ qua (chỉ phát hành khi thu đủ), gọi cho nhất quán.
+  maybeIssueInvoice(booking.id).catch((e) => console.error('Kiểm tra phát hành hóa đơn (cọc) thất bại:', e))
   sendBookingEmail(booking.guestEmail, {
     code: booking.code, pin: null, productName: '(đơn ' + booking.code + ')',
     totalPrice: booking.totalPrice, depositAmount: booking.depositAmount, remainingAmount: booking.remainingAmount,
